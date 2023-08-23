@@ -19,6 +19,8 @@ classifiers = [
 ]
 dependencies = [
   "whisper-jax[endpoint] @ git+https://github.com/sanchit-gandhi/whisper-jax.git@45bff9df78a6a4f04144f405c74cf0ffa4c5fb52",
+  "cached-property",
+  "bentoml[triton]"
 ]
 
 [project.optional-dependencies]
@@ -93,6 +95,7 @@ unfixable = [
   # Don't touch unused imports
   "F401",
 ]
+fix = true
 
 [tool.ruff.isort]
 known-first-party = ["whisper_stream"]
