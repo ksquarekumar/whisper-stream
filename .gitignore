@@ -144,3 +144,4 @@ dmypy.json
 
 # Solutions
 .solutions/
+whisper_stream/.DS_Store

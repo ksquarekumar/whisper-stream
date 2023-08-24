@@ -18,12 +18,18 @@ pip install "whisper-stream @ git+https://github.com/ksquarekumar/whisper-stream
 ### In Development Mode
 
 ```console
+conda install mamba
+mamba create -f conda.yml
+mamba activate whisper_py310
 virtualenv ./.venv
 source ./.venv/bin/activate
-pip install --upgrade pip wheel build sdist flit
 pip install -e ."[dev, test]"
 pre-commit install --install-hooks && pre-commit autoupdate
 ```
+
+## [Whisper-JAX](./WhisperJax.md)
+
+> partially vendored from [whisper-jax](https://github.com/sanchit-gandhi/whisper-jax)
 
 ## License
 
