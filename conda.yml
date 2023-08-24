@@ -1,0 +1,22 @@
+name: whisper_py310
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - flax
+  - transformers>=4.27.4
+  - ffmpeg
+  - cached-property
+  - arrow
+  - build
+  - flit
+  - virtualenv
+  - jupyter
+  - ipython
+  - ipykernel
+  - ipywidgets
+  - notebook
+  - nbconvert
+  - black
+  - mypy

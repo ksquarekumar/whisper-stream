@@ -1,13 +1,15 @@
 import time
 from pathlib import Path
-from typing import Final, Literal, TypeVar
+from typing import Final, Literal
 
 import jax.numpy as jnp
-from whisper_jax import FlaxWhisperPipline
+from jax._src.numpy.lax_numpy import _ScalarMeta as ScalarMeta
+
+from whisper_stream.whisper_jax import FlaxWhisperPipeline
 
 __FILE__: Final[str] = __file__
 
-ValidDtypes = TypeVar("ValidDtypes", jnp.float16, jnp.float32, jnp.bfloat16)
+ValidDtypes: Final[dict[str, ScalarMeta]] = {"FLOAT32": jnp.float32, "BFLOAT16": jnp.bfloat16, "FLOAT16": jnp.float16}
 
 ValidCheckpoints = Literal[
     "openai/whisper-tiny",
@@ -19,7 +21,7 @@ ValidCheckpoints = Literal[
 ]
 
 
-def load_filepath(sample_file: str) -> str:
+def load_data_sample_from_path(sample_file: str) -> str:
     files = list(Path(__FILE__).parent.glob(f"data/{sample_file}"))
     if len(files) >= 1:
         return str(files[0].absolute())
@@ -43,13 +45,13 @@ logical_axis_rules_dp = (
 )
 
 
-def initialize_pipeline(
+def initialize_jax_pipeline(
     checkpoint: ValidCheckpoints,
     sample_data_path: str,
-    dtype: ValidDtypes = jnp.float32,
+    dtype: ScalarMeta = ValidDtypes["FLOAT32"],
     batch_size: int | None = None,
     max_length: int | None = None,
-) -> FlaxWhisperPipline:
+) -> FlaxWhisperPipeline:
     """instantiate and return the Pipeline.
 
     Args:
@@ -69,20 +71,21 @@ def initialize_pipeline(
             The maximum numbers of tokens to generate. Defaults to `model.config.max_length`.
 
     Returns:
-        FlaxWhisperPipline: an instance of `FlaxWhisperPipline` pre-initialized with data
+        FlaxWhisperPipeline: an instance of `FlaxWhisperPipeline` pre-initialized with data
     """
     # instantiate pipeline
-    pipeline = FlaxWhisperPipline(checkpoint=checkpoint, dtype=dtype, batch_size=batch_size, max_length=max_length)
+    pipeline: FlaxWhisperPipeline = FlaxWhisperPipeline(checkpoint=checkpoint, dtype=dtype, batch_size=batch_size, max_length=max_length)  # type: ignore[no-untyped-call]
     # optimize for data parallelism
-    pipeline.shard_params(num_mp_partitions=1, logical_axis_rules=logical_axis_rules_dp)
+    pipeline.shard_params(num_mp_partitions=1, logical_axis_rules=logical_axis_rules_dp)  # type: ignore[no-untyped-call]
     # compile
-    pipeline(load_filepath(sample_data_path))
+    pipeline(load_data_sample_from_path(sample_data_path))
     # return
     return pipeline
 
 
 if __name__ == "__main__":
-    pipeline: FlaxWhisperPipline = initialize_pipeline("openai/whisper-tiny", "audio_1.mp3")
+    model: Final[ValidCheckpoints] = "openai/whisper-tiny"
+    pipeline: FlaxWhisperPipeline = initialize_jax_pipeline(model, "audio_1.mp3")
     start: float = time.time()
-    print("Output:", pipeline(load_filepath("audio_1.mp3"), chunk_length_s=3, stride_length_s=1))  # noqa: T201
+    print("Output:", pipeline(load_data_sample_from_path("audio_1.mp3")))  # noqa: T201
     print(f"Time taken: {time.time() - start}")  # noqa: T201

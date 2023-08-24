@@ -3,10 +3,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
-      - args:
-          - --autofix
-          - --no-sort-keys
-        id: pretty-format-json
+        types: ["json"]
       - id: end-of-file-fixer
       - id: check-case-conflict
       - id: fix-byte-order-marker
@@ -17,25 +14,47 @@ repos:
       - id: mixed-line-ending
     repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.285
-    hooks:
+  - hooks:
       - id: ruff
+        args: ["--fix", "--show-fixes"]
+        pass_filenames: false
+        types:
+          - "python"
+    repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.0.285
   - hooks:
       - id: black
+        types:
+          - "python"
+        exclude_types:
+          - "jupyter"
     repo: https://github.com/psf/black
     rev: 23.7.0
   - hooks:
-      - args:
-          - --show-error-codes
-          - --ignore-missing-imports
+      - id: mypy
+        types:
+          - "text"
+        pass_filenames: false
+        args:
           - --install-types
           - --non-interactive
           - --config-file
-          - pyproject.toml
-        id: mypy
+          - ./pyproject.toml
     repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.5.1
+  - hooks:
+      - id: nbqa-black
+        additional_dependencies: [black>=23.1.0]
+      - id: nbqa-ruff
+        additional_dependencies: [ruff==0.0.285]
+        require_serial: true
+        args: ["--fix"]
+    repo: https://github.com/nbQA-dev/nbQA
+    rev: "1.7.0"
+  - hooks:
+      - id: nbstripout
+    repo: https://github.com/kynan/nbstripout
+    rev: "0.6.1"
   - hooks:
       - args:
           - --ignore
