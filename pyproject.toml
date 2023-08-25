@@ -18,6 +18,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
+  "structlog",
+  "orjson",
   "flax",
   "transformers>=4.27.4",
   "cached-property>=1.5.2",
@@ -25,6 +27,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+data = ["boto3", "click"]
 dev = [
   "whisper-stream",
   "black>=23.1.0",
@@ -130,10 +133,8 @@ show_absolute_path = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-disallow_untyped_decorators = true
 check_untyped_defs = true
 # Restrict dynamic typing
-disallow_any_decorated = false
 disallow_any_generics = true
 disallow_subclassing_any = true
 warn_return_any = true
@@ -141,11 +142,13 @@ warn_return_any = true
 strict_equality = true
 strict_optional = true
 no_implicit_optional = true
+# third party decorators
+allow_any_decorated = false
+allow_untyped_decorators = true
 
 # It's hard to make tests compliant using unittest.mock
 [[tool.mypy.overrides]]
 module = 'tests'
-allow_untyped_decorators = true
 allow_untyped_defs = true
 
 [[tool.mypy.overrides]]

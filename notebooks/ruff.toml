@@ -1,4 +1,4 @@
 # Extend the `pyproject.toml` file in the parent directory.
 extend = "../pyproject.toml"
-ignore = ["E402", "T201", "F821"]
+ignore = ["E402", "T201", "F821", "N999"]
 line-length = 120

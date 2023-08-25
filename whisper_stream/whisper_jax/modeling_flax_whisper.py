@@ -52,7 +52,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from whisper_jax.layers import with_sharding_constraint
+from whisper_stream.whisper_jax.layers import with_sharding_constraint
 
 from whisper_stream.whisper_jax import layers
 

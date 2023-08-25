@@ -1,14 +1,17 @@
+#!python3
 import time
-from pathlib import Path
 from typing import Final, Literal
 
 import jax.numpy as jnp
 from jax._src.numpy.lax_numpy import _ScalarMeta as ScalarMeta
 
 from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.data.prefetch import load_data_sample_from_path
+from whisper_stream.logger import get_application_logger, BoundLogger
 
 __FILE__: Final[str] = __file__
 
+logger: BoundLogger = get_application_logger(name="pipeline")
 ValidDtypes: Final[dict[str, ScalarMeta]] = {"FLOAT32": jnp.float32, "BFLOAT16": jnp.bfloat16, "FLOAT16": jnp.float16}
 
 ValidCheckpoints = Literal[
@@ -19,14 +22,6 @@ ValidCheckpoints = Literal[
     "openai/whisper-large",
     "openai/whisper-large-v2",
 ]
-
-
-def load_data_sample_from_path(sample_file: str) -> str:
-    files = list(Path(__FILE__).parent.glob(f"data/{sample_file}"))
-    if len(files) >= 1:
-        return str(files[0].absolute())
-    msg = f"File {sample_file} does not exist in ./data"
-    raise FileNotFoundError(msg)
 
 
 # 2D parameter and activation partitioning for DP
@@ -74,11 +69,23 @@ def initialize_jax_pipeline(
         FlaxWhisperPipeline: an instance of `FlaxWhisperPipeline` pre-initialized with data
     """
     # instantiate pipeline
+    binds = {"model": str(checkpoint), "mode": "whisper-jax"}
+    logger.info(
+        "Initializing pipeline",
+        **binds,
+        sample_data_path=sample_data_path,
+        dtype=dtype,
+        batch_size=batch_size,
+        max_length=max_length,
+    )
     pipeline: FlaxWhisperPipeline = FlaxWhisperPipeline(checkpoint=checkpoint, dtype=dtype, batch_size=batch_size, max_length=max_length)  # type: ignore[no-untyped-call]
     # optimize for data parallelism
     pipeline.shard_params(num_mp_partitions=1, logical_axis_rules=logical_axis_rules_dp)  # type: ignore[no-untyped-call]
     # compile
+    start: float = time.time()
+    logger.info("starting pre-compilation", **binds)
     pipeline(load_data_sample_from_path(sample_data_path))
+    logger.info("finished pre-compilation", **binds, time_taken=f"{(time.time() - start):.2f}s")
     # return
     return pipeline
 
@@ -87,5 +94,6 @@ if __name__ == "__main__":
     model: Final[ValidCheckpoints] = "openai/whisper-tiny"
     pipeline: FlaxWhisperPipeline = initialize_jax_pipeline(model, "audio_1.mp3")
     start: float = time.time()
-    print("Output:", pipeline(load_data_sample_from_path("audio_1.mp3")))  # noqa: T201
-    print(f"Time taken: {time.time() - start}")  # noqa: T201
+    logger.info(
+        "Output", output=pipeline(load_data_sample_from_path("audio_1.mp3")), time_taken=f"{(time.time() - start):.2f}s"
+    )

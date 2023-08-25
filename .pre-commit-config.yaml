@@ -33,11 +33,14 @@ repos:
   - hooks:
       - id: mypy
         types:
-          - "text"
+          - "python"
         pass_filenames: false
         args:
           - --install-types
+          - --ignore-missing-imports
+          - --warn-unused-ignores
           - --non-interactive
+          - --scripts-are-modules
           - --config-file
           - ./pyproject.toml
     repo: https://github.com/pre-commit/mirrors-mypy
