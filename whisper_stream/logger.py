@@ -91,7 +91,7 @@ def _get_processors() -> list[structlog.types.Processor]:
 
 CONTEXT_VARS = {
     "application": "whisper_stream",
-    "version": str(importlib_metadata.version("whisper_stream")),
+    "version": str(importlib_metadata.version("whisper_stream")),  # type: ignore[no-untyped-call]
     "python_version": python_version(),
     "platform_architecture": architecture(),
 }
