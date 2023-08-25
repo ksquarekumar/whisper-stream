@@ -11,6 +11,9 @@ dependencies:
   - arrow
   - build
   - flit
+  - joblib
+  - pathos
+  - dill
   - virtualenv
   - jupyter
   - ipython

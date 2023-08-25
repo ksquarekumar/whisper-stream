@@ -110,7 +110,7 @@ def get_application_logger(name: str, binds: dict[str, Any] | None = None) -> Bo
     return _LOGGERS[name]
 
 
-def setup_logging(setup_snowflake: Literal["create", "skip"] = "create"):
+def setup_logging(setup_snowflake: Literal["create", "skip"] = "create") -> None:
     _log_level: LogLevels = get_log_level_from_name(name=os.environ.get("LOG_LEVEL", "INFO"))
     logging.basicConfig(level=_log_level.value)
     structlog.configure(

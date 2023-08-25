@@ -32,19 +32,13 @@ repos:
     rev: 23.7.0
   - hooks:
       - id: mypy
+        name: Static Type Checking with Mypy
+        language: system
+        entry: mypy --install-types --follow-imports=silent --ignore-missing-imports --config-file pyproject.toml .
         types:
           - "python"
         pass_filenames: false
-        args:
-          - --install-types
-          - --ignore-missing-imports
-          - --warn-unused-ignores
-          - --non-interactive
-          - --scripts-are-modules
-          - --config-file
-          - ./pyproject.toml
-    repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.1
+    repo: local
   - hooks:
       - id: nbqa-black
         additional_dependencies: [black>=23.1.0]

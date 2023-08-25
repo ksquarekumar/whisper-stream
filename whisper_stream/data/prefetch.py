@@ -3,6 +3,7 @@ from typing import Callable, Literal, overload
 import boto3
 from botocore.exceptions import NoCredentialsError
 from pathlib import Path
+from joblib import Parallel, delayed, cpu_count
 
 import click
 from whisper_stream.logger import get_application_logger
@@ -87,15 +88,23 @@ def download_files_from_s3_and_rename(
         objects = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
         # Download files that match the pattern
-        idx: int = 1
-        for obj in objects.get('Contents', []):
-            if pattern in obj['Key']:
-                file_name: str = rename_fn(idx) if rename_all else obj['Key']
-                local_path: Path = local_directory / file_name
+        logger.info("Downloading files from S3 bucket", Bucket=bucket, Prefix=prefix)
 
-                # Download the file
-                s3_client.download_file(bucket, file_name, local_path)
-                logger.info(f"Downloaded {file_name} to {local_path}")
+        # Make jobs
+        jobs: list[tuple[str, str, str, int]] = []
+        idx: int = 1
+        for obj in objects.get("Contents", []):
+            if pattern in obj["Key"]:
+                file_name: str = rename_fn(idx) if rename_all else obj['Key']
+                local_path: str = str((local_directory / file_name).absolute())
+                jobs.append((bucket, str(obj['Key']), local_path, obj["Size"]))
+                idx += 1
+        # sort by Size
+        jobs = sorted(jobs, key=lambda x: x[3], reverse=True)
+        # Download in parallel
+        Parallel(n_jobs=cpu_count(), backend="threading")(
+            delayed(s3_client.download_file)(bucket, obj_key, local_path) for bucket, obj_key, local_path, _ in jobs
+        )
 
     except NoCredentialsError as e:
         logger.error("Credentials not available.")
