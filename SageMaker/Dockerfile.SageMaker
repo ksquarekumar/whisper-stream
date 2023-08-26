@@ -1,0 +1,71 @@
+ARG USER_NAME="ksquarekumar"
+ARG EMAIL_ADDRESS="ksquarekumar@gmail.com"
+ARG SOURCE_ACCOUNT_ID="763104351884"
+ARG SOURCE_REGION="ap-south-1"
+ARG SOURCE_IMAGE_NAME="pytorch-training"
+ARG SOURCE_IMAGE_VERSION="2.0.1-gpu-py310-cu118-ubuntu20.04-ec2"
+
+# Pull from existing
+FROM ${SOURCE_ACCOUNT_ID}.dkr.ecr.${SOURCE_REGION}.amazonaws.com/${SOURCE_IMAGE_NAME}:${SOURCE_IMAGE_VERSION} AS base
+
+# Setting some environment variables related to logging
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_EXTRA_INDEX_URL='https://pypi.nvidia.com'
+
+
+# hadolint ignore=DL3008,DL3009
+RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
+    && apt-get install \
+    --no-install-suggests \
+    --no-install-recommends -y \
+    git \
+    software-properties-common \
+    apt-utils \
+    debconf \
+    dirmngr \
+    lsb-release \
+    dpkg-dev \
+    binutils \
+    coreutils \
+    aria2 \
+    htop \
+    ffmpeg \
+    unzip \
+    tar \
+    bzip2 \
+    tmux \
+    zsh \
+    gnupg \
+    gpg \
+    gpg-agent \
+    apt-transport-https \
+    axel \
+    xz-utils \
+    cron \
+    tzdata \
+    procps \
+    && git config --global user.name "${USER_NAME}" \
+    && git config --global user.email "${EMAIL_ADDRESS}"
+
+
+# hadolint ignore=DL3045
+COPY conda.yml .
+
+
+# hadolint ignore=DL3013
+RUN mamba env update -n base --file conda.yml \
+    && pip install --no-cache-dir --upgrade pip setuptools_rust build wheel flit \
+    # install the version of jax that can use system cuda, should work as the source image indicates cuda is installed in /usr/local
+    && pip install --no-cache-dir --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    && pip install --no-cache-dir --upgrade nvidia-pyindex \
+    && pip install --no-cache-dir tensorrt==8.5.3.1 nvidia-pytriton==0.2.4 \
+    && pip install --no-cache-dir --upgrade flax transformers>=4.27.4 cached-property accelerate>=0.20.3 numba orjson pathos dill joblib \
+    && pip install --no-cache-dir --upgrade ctranslate2 \
+    && pip install --no-cache-dir --upgrade sagemaker-training multi-model-server sagemaker-inference \
+    && pip install --no-cache-dir --upgrade black mypy ruff tqdm nbconvert ipywidgets ipykernel jupyter ipython virtualenv widgetsnbextension \
+    && apt-get remove build-essential cmake -yq || true \
+    && apt-get clean -yq \
+    && apt-get autoclean  -yq \
+    && apt-get autoremove --purge -yq \
+    && rm -rf /var/lib/apt/lists/*

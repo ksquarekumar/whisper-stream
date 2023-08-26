@@ -24,7 +24,7 @@ mamba activate whisper_py310
 virtualenv ./.venv
 source ./.venv/bin/activate
 pip install -e ."[data,dev,test]"
-pre-commit install --install-hooks && pre-commit autoupdate
+pre-commit install --install-hooks
 ```
 
 ## [Whisper-JAX](./WhisperJax.md)

@@ -6,6 +6,8 @@ FROM python:3.10-slim AS base
 FROM base AS final
 ARG STAGE
 
+
+# hadolint ignore=DL3008,DL3009
 RUN apt-get update && \
     apt-get install -yq \
     --no-install-recommends \
@@ -18,6 +20,8 @@ RUN apt-get update && \
 # Minimal copy of files needed to install Dependencies
 COPY . /code
 
+
+# hadolint ignore=DL3013
 RUN python -m pip install --no-cache-dir --upgrade \
     pip wheel build sdist setuptools flit \
     && pip install --no-cache-dir --use-pep517 "/code/"
@@ -37,6 +41,7 @@ RUN pip install --no-cache-dir --no-deps "." \
     && apt-get remove build-essential -yq \
     && apt-get clean -yq \
     && apt-get autoclean  -yq \
-    && apt-get autoremove --purge -yq
+    && apt-get autoremove --purge -yq \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV STAGE=$STAGE

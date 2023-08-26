@@ -6,11 +6,10 @@
 __version__ = "0.0.1"
 
 from whisper_stream.pipeline import initialize_jax_pipeline
-from whisper_stream.data import prefetch
 
 
 def get_version() -> None:
     print(__version__)
 
 
-__all__: list[str] = ["__version__", "get_version", "initialize_jax_pipeline", "prefetch"]
+__all__: list[str] = ["__version__", "get_version", "initialize_jax_pipeline"]
