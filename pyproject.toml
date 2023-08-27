@@ -31,7 +31,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-data = ["boto3", "click"]
+data = ["boto3", "click", "soundfile", "librosa"]
+benchmarks = ["datasets", "click"]
 dev = [
   "whisper-stream",
   "black>=23.1.0",

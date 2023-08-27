@@ -21,19 +21,15 @@ RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
     && apt-get install \
     --no-install-suggests \
     --no-install-recommends -y \
-    git \
     software-properties-common \
     apt-utils \
     debconf \
     dirmngr \
     lsb-release \
-    dpkg-dev \
     binutils \
     coreutils \
     aria2 \
-    htop \
     ffmpeg \
-    nano \
     unzip \
     tar \
     bzip2 \
@@ -56,16 +52,29 @@ RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
 COPY ssm.ssh /usr/local/bin/ssm.ssh
 
 # hadolint ignore=DL3013
-RUN pip install --no-cache-dir --upgrade pip setuptools_rust build wheel flit \
+RUN \
+    # CONDA/MAMBA Corrupts htop/nano from apt
+    mamba install htop nano \
+    # PRE-DEPS
+    && pip install --no-cache-dir --upgrade pip setuptools_rust build wheel flit \
+    # ML (JAX)
     # install the version of jax that can use system cuda, should work as the source image indicates cuda is installed in /usr/local
     && pip install --no-cache-dir --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    # ML (NVIDIA)
     && pip install --no-cache-dir --upgrade nvidia-pyindex \
     && pip install --no-cache-dir --upgrade tensorrt==8.5.3.1 nvidia-pytriton>=0.2.4 "pyzmq~=23.0" "PyYAML<5.5,>=3.10" \
+    # ML Libs & Deps
     flax "transformers[torch]>=4.27.4" faster-whisper cached-property accelerate>=0.20.3 numba orjson pathos dill joblib ctranslate2 \
-    sagemaker-training multi-model-server sagemaker-inference \
-    black mypy structlog ruff tqdm nbconvert ipywidgets ipykernel jupyter ipython virtualenv widgetsnbextension \
+    # AWS Stuff
+    sagemaker-training multi-model-server \
+    # Pre-Install Proejct Packages
+    black mypy structlog ruff tqdm nbconvert ipywidgets ipython virtualenv widgetsnbextension \
+    # Install IPyKernel
+    && python -m pip install --no-cache-dir --upgrade ipykernel \
+    && python -m ipykernel install --sys-prefix \
     && apt-get remove build-essential cmake -yq || true \
     && apt-get clean -yq \
     && apt-get autoclean  -yq \
     && apt-get autoremove --purge -yq \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mamba clean -a
