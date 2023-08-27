@@ -4,3 +4,4 @@
 
 ## Add only what we need
 !conda.yml
+!ssm.ssh
