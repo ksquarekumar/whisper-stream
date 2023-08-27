@@ -2,6 +2,8 @@ version: 0.2
 
 env:
   shell: bash
+  variables:
+    DOCKER_BUILDKIT: 1
 phases:
   pre_build:
     commands:
@@ -11,7 +13,7 @@ phases:
       - aws --region "${DESTINATION_REGION}" ecr create-repository --repository-name "${DESTINATION_ECR}" || true
       # Auth with Destination ECR
       - aws --region "${DESTINATION_REGION}" ecr get-login-password | docker login --username AWS --password-stdin "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_ECR}"
-      - docker pull ${SOURCE_ACCOUNT_ID}.dkr.ecr.${SOURCE_REGION}.amazonaws.com/${SOURCE_IMAGE_NAME}:${SOURCE_IMAGE_VERSION} || true
+      - docker pull "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" || true
     finally:
       # Check Source
       - echo "$(ls -al .)"
@@ -20,7 +22,9 @@ phases:
       # Build Image
       - |
         docker buildx build \
+          --progress=plain \
           -f SageMaker/Dockerfile.SageMaker \
+          --cache-from "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
           --build-arg USER_NAME="${USER_NAME}" \
           --build-arg EMAIL_ADDRESS="${EMAIL_ADDRESS}" \
           --build-arg SOURCE_ACCOUNT_ID="${SOURCE_ACCOUNT_ID}" \
@@ -33,13 +37,10 @@ phases:
       # Testing
       # Verify the Image is KernelApp Compatible
       # Run the container with a KernelGateway to validate that the kernels are visible from the REST endpoint exposed to the host.
-      # - docker run -p 8888:8888 "${DESTINATION_IMAGE_VERSION}" bash -c 'pip install jupyter_kernel_gateway  && jupyter-kernelgateway --ip 0.0.0.0 --debug --port 8888'
+      # - nohup docker run -p 8888:8888 "${DESTINATION_IMAGE_VERSION}" bash -c 'pip install jupyter_kernel_gateway && jupyter kernelgateway --ip 0.0.0.0 --debug --port 8888' &
       # - curl http://0.0.0.0:8888/api/kernelspecs
-    finally:
       # All OK, Now Push the Docker image to Amazon ECR
       - docker push "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}"
-  post_build:
-    commands:
       # Create a SageMaker Image (SMI) with the image in ECR.
       # Request parameter RoleArn value is used to get ECR image information when and Image version is created.
       # After creating Image, create an Image Version during which SageMaker stores image metadata like SHA etc.
@@ -50,7 +51,7 @@ phases:
           --description "Custom container image for SageMaker with JAX" \
           --image-name "${DESTINATION_IMAGE_VERSION}" \
           --display-name "${DESTINATION_IMAGE_VERSION}" \
-          --role-arn "${ROLE_ARN}" || true
+          --role-arn "${ROLE_ARN}" 2>&1 || true
       - |
         aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
           --image-name "${DESTINATION_IMAGE_VERSION}" \
@@ -66,5 +67,6 @@ phases:
       - |
         aws --region "${DESTINATION_REGION}" sagemaker describe-image-version \
           --image-name "${DESTINATION_IMAGE_VERSION}"
-    finally:
+  post_build:
+    commands:
       - echo "All Done"

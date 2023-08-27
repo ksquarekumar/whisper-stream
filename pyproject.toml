@@ -23,7 +23,9 @@ dependencies = [
   "flax",
   "joblib",
   "accelerate>=0.20.3",
-  "transformers>=4.27.4",
+  "ctranslate2",
+  "faster-whisper",
+  "transformers[torch]>=4.27.4",
   "cached-property>=1.5.2",
   "nvidia-pytriton>=0.2.4"
 ]

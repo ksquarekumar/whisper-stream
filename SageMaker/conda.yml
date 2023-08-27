@@ -1,8 +1,0 @@
-name: whisper_py310
-channels:
-  - conda-forge
-  - nvidia
-  - defaults
-dependencies:
-  - python=3.10
-  - ffmpeg

@@ -78,7 +78,7 @@ docker run -it "${DESTINATION_IMAGE_VERSION}" bash
 #### Run the container with a `KernelGateway` to validate that the kernels are visible from the `REST` endpoint exposed on the local host.
 
 ```shell
-docker run -it -p 8888:8888 "${DESTINATION_IMAGE_VERSION}" bash -c 'pip install jupyter_kernel_gateway  && jupyter-kernelgateway --ip 0.0.0.0 --debug --port 8888'
+docker run -it -p 8888:8888 "${DESTINATION_IMAGE_VERSION}" bash -c 'pip install jupyter_kernel_gateway && jupyter kernelgateway --ip 0.0.0.0 --debug --port 8888'
 
 curl http://0.0.0.0:8888/api/kernelspecs
 ```
