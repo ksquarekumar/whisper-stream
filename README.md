@@ -21,7 +21,7 @@ pip install "whisper-stream[data] @ git+https://github.com/ksquarekumar/whisper-
 conda install mamba
 mamba env create -f conda.yml
 mamba activate whisper_py310
-virtualenv ./.venv
+virtualenv ./.venv --system-site-packages
 source ./.venv/bin/activate
 pip install -e ."[data,dev,test]"
 pre-commit install --install-hooks

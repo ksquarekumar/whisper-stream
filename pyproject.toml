@@ -23,13 +23,16 @@ dependencies = [
   "flax",
   "joblib",
   "accelerate>=0.20.3",
-  "transformers>=4.27.4",
+  "ctranslate2",
+  "faster-whisper",
+  "transformers[torch]>=4.27.4",
   "cached-property>=1.5.2",
   "nvidia-pytriton>=0.2.4"
 ]
 
 [project.optional-dependencies]
-data = ["boto3", "click"]
+data = ["boto3", "click", "soundfile", "librosa"]
+benchmarks = ["datasets", "click"]
 dev = [
   "whisper-stream",
   "black>=23.1.0",

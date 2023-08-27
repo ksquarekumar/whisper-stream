@@ -1,0 +1,72 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    DOCKER_BUILDKIT: 1
+phases:
+  pre_build:
+    commands:
+      # Auth with Source ECR
+      - aws --region "${SOURCE_REGION}" ecr get-login-password | docker login --username AWS --password-stdin "${SOURCE_ACCOUNT_ID}.dkr.ecr.${SOURCE_REGION}.amazonaws.com/${SOURCE_ECR}"
+      # Create Destination ECR Repo | Exit gracefully if it exists already
+      - aws --region "${DESTINATION_REGION}" ecr create-repository --repository-name "${DESTINATION_ECR}" || true
+      # Auth with Destination ECR
+      - aws --region "${DESTINATION_REGION}" ecr get-login-password | docker login --username AWS --password-stdin "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_ECR}"
+      - docker pull "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" || true
+    finally:
+      # Check Source
+      - echo "$(ls -al .)"
+  build:
+    commands:
+      # Build Image
+      - |
+        docker buildx build \
+          --progress=plain \
+          -f SageMaker/Dockerfile.SageMaker \
+          --cache-from "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
+          --build-arg USER_NAME="${USER_NAME}" \
+          --build-arg EMAIL_ADDRESS="${EMAIL_ADDRESS}" \
+          --build-arg SOURCE_ACCOUNT_ID="${SOURCE_ACCOUNT_ID}" \
+          --build-arg SOURCE_REGION="${SOURCE_REGION}" \
+          --build-arg SOURCE_IMAGE_NAME="${SOURCE_IMAGE_NAME}" \
+          --build-arg SOURCE_IMAGE_VERSION="${SOURCE_IMAGE_VERSION}" \
+          -t "${DESTINATION_IMAGE_VERSION}" \
+          -t "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
+          "./SageMaker"
+      # Testing
+      # Verify the Image is KernelApp Compatible
+      # Run the container with a KernelGateway to validate that the kernels are visible from the REST endpoint exposed to the host.
+      # - nohup docker run -p 8888:8888 "${DESTINATION_IMAGE_VERSION}" bash -c 'pip install jupyter_kernel_gateway && jupyter kernelgateway --ip 0.0.0.0 --debug --port 8888' &
+      # - curl http://0.0.0.0:8888/api/kernelspecs
+      # All OK, Now Push the Docker image to Amazon ECR
+      - docker push "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}"
+      # Create a SageMaker Image (SMI) with the image in ECR.
+      # Request parameter RoleArn value is used to get ECR image information when and Image version is created.
+      # After creating Image, create an Image Version during which SageMaker stores image metadata like SHA etc.
+      # every time an image is updated in ECR, a new image version should be created.
+      # Create SMI | Exit gracefully if it exists already
+      - |
+        aws --region "${DESTINATION_REGION}" sagemaker create-image \
+          --description "Custom container image for SageMaker with JAX" \
+          --image-name "${DESTINATION_IMAGE_VERSION}" \
+          --display-name "${DESTINATION_IMAGE_VERSION}" \
+          --role-arn "${ROLE_ARN}" 2>&1 || true
+      - |
+        aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
+          --image-name "${DESTINATION_IMAGE_VERSION}" \
+          --aliases jax cu11 \
+          --base-image "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
+          --job-type "NOTEBOOK_KERNEL" \
+          --ml-framework "jax 4.14" \
+          --programming-lang "python 3.10" \
+          --processor "GPU" \
+          --horovod \
+          --release-notes "Support for Jax >=4.14"
+      # Verify the image-version is created successfully. Do NOT proceed if image-version is in CREATE_FAILED state or in any other state apart from CREATED.
+      - |
+        aws --region "${DESTINATION_REGION}" sagemaker describe-image-version \
+          --image-name "${DESTINATION_IMAGE_VERSION}"
+  post_build:
+    commands:
+      - echo "All Done"
