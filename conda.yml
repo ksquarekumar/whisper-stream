@@ -7,10 +7,13 @@ channels:
 dependencies:
   - python=3.10
   - flax
+  - jax
   - transformers>=4.27.4
   - ffmpeg
   - cached-property
   - accelerate>=0.20.3
+  - numba
+  - pyarrow
   - build
   - flit
   - joblib
