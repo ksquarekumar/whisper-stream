@@ -77,4 +77,4 @@ RUN \
     && apt-get autoclean  -yq \
     && apt-get autoremove --purge -yq \
     && rm -rf /var/lib/apt/lists/* \
-    && mamba clean -a
+    && mamba clean -a -y

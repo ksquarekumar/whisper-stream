@@ -1,4 +1,4 @@
-name: publish-release-and-docker
+name: Release
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -8,6 +8,11 @@ name: publish-release-and-docker
 on:
   push:
     branches: ["main"]
+    paths:
+      - whisper_stream
+      - .dockerignore
+      - Dockerfile
+      - pyproject.toml
 
 permissions:
   contents: write
@@ -20,18 +25,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: google-github-actions/release-please-action@v3.1.2
-        with:
-          release-type: python
-          package-name: whisper-stream
-          bump-minor-pre-major: true
-          include-v-in-tag: false
-
   build:
-    needs: release-please
+    # needs: release-please
     runs-on: ubuntu-latest
     permissions:
       contents: read

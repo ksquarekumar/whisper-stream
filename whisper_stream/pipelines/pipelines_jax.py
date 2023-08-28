@@ -29,7 +29,7 @@ ThreadParallel = Parallel(backend="threading", n_jobs=cpu_count())
 logger: BoundLogger = get_application_logger(name="pipeline")
 ValidDtypes: Final[dict[str, ScalarMeta]] = {"FLOAT32": jnp.float32, "BFLOAT16": jnp.bfloat16, "FLOAT16": jnp.float16}
 
-ValidCheckpoints = Literal[
+ValidJaxCheckpoints = Literal[
     "openai/whisper-tiny",
     "openai/whisper-base",
     "openai/whisper-small",
@@ -56,7 +56,7 @@ logical_jax_axis_rules_for_dp = (
 
 
 def initialize_impl_batched_jax_pipeline(
-    checkpoint: ValidCheckpoints,
+    checkpoint: ValidJaxCheckpoints,
     sample_data: bytes,
     dtype: ScalarMeta = ValidDtypes["FLOAT32"],
     **kwargs: Any,
@@ -87,7 +87,7 @@ def initialize_impl_batched_jax_pipeline(
     MODE: Final[str] = "whisper-jax-implicit-batching"
     # check for sample data
     if not is_bytes(sample_data):
-        message: str = "Cannot initialize without data"
+        message: str = f"data must be of type bytes, received {type(sample_data)}"
         raise ValueError(message)
     # check and parse kwargs
     known_kwargs: dict[str, Any] = parse_known_kwargs(func_or_class=FlaxWhisperPipeline, kwargs=kwargs)
@@ -111,17 +111,17 @@ def initialize_impl_batched_jax_pipeline(
 
 
 def initialize_batched_jax_pipeline(
-    checkpoint: ValidCheckpoints,
+    checkpoint: ValidJaxCheckpoints,
     sample_data: list[bytes],
     dtype: ScalarMeta | jnp.dtype[Any] = ValidDtypes["FLOAT32"],
     task: Literal["transcribe", "translate"] = "transcribe",
     return_timestamps: bool = False,
     max_new_tokens: int = 25,
     min_new_tokens: int = 25,
-    pretrained_tokenizer_model_name: ValidCheckpoints | None = None,
+    pretrained_tokenizer_model_name: ValidJaxCheckpoints | None = None,
     **kwargs: Any,
 ) -> Callable[[list[bytes]], list[str]]:
-    """instantiate and return the Pipeline with explicit batching, meant for multiple smaller.
+    """instantiate and return the Pipeline with explicit batching, meant for multiple smaller files [<30s].
 
     Args:
         checkpoint (str):
@@ -157,7 +157,7 @@ def initialize_batched_jax_pipeline(
     MODE: Final[str] = "whisper-jax-explicit-batching"
     # check for sample data
     if not is_bytes_array(sample_data):
-        message: str = "Cannot initialize without data"
+        message: str = f"data must be an list of bytes, received {type(sample_data)}"
         raise ValueError(message)
 
     # check and parse kwargs
@@ -271,17 +271,17 @@ def initialize_batched_jax_pipeline(
     return pipeline
 
 
-__all__: list[str] = ["initialize_impl_batched_jax_pipeline", "initialize_batched_jax_pipeline"]
+__all__: list[str] = ["ValidJaxCheckpoints", "initialize_impl_batched_jax_pipeline", "initialize_batched_jax_pipeline"]
 
 if __name__ == "__main__":
-    model: Final[ValidCheckpoints] = "openai/whisper-tiny"
+    model: Final[ValidJaxCheckpoints] = "openai/whisper-tiny"
     sample_data: bytes = load_data_sample_from_path("audio_1.mp3", binary_mode=True)
     # Test for all
     # (1) ImplicitBatchedJAX
-    # logger.info("Testing: (1)`initialize_impl_batched_jax_pipeline`")
-    # impl_pipeline: FlaxWhisperPipeline = initialize_impl_batched_jax_pipeline(checkpoint=model, sample_data=sample_data)
-    # start: float = time.time()
-    # logger.info("Output", output=impl_pipeline(sample_data), time_taken=f"{(time.time() - start):.2f}s")
+    logger.info("Testing: (1)`initialize_impl_batched_jax_pipeline`")
+    impl_pipeline: FlaxWhisperPipeline = initialize_impl_batched_jax_pipeline(checkpoint=model, sample_data=sample_data)
+    start: float = time.time()
+    logger.info("Output", output=impl_pipeline(sample_data), time_taken=f"{(time.time() - start):.2f}s")
     # (2) ExplicitBatchedJAX
     logger.info("Testing: (2)`initialize_explicit_batched_jax_pipeline`")
     explicit_pipeline: Callable[[list[bytes]], list[str]] = initialize_batched_jax_pipeline(
