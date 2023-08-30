@@ -13,9 +13,9 @@
 # limitations under the License.
 
 
-from whisper_stream.whisper_jax.modeling_flax_whisper import FlaxWhisperForConditionalGeneration
-from whisper_stream.whisper_jax.partitioner import PjitPartitioner
-from whisper_stream.whisper_jax.pipeline import FlaxWhisperPipeline
-from whisper_stream.whisper_jax.train_state import InferenceState
+from whisper_stream.vendored.whisper_jax.modeling_flax_whisper import FlaxWhisperForConditionalGeneration
+from whisper_stream.vendored.whisper_jax.partitioner import PjitPartitioner
+from whisper_stream.vendored.whisper_jax.pipeline import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax.train_state import InferenceState
 
 __all__: list[str] = ["FlaxWhisperForConditionalGeneration", "PjitPartitioner", "FlaxWhisperPipeline", "InferenceState"]

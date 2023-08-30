@@ -4,15 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 """Demonstrator for whisper on AWS"""
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
-from whisper_stream.pipelines.factory import pipeline_factory
+from whisper_stream.pipelines import JAXPipeline
 
-from whisper_stream.data.prefetch import load_data_sample_from_path
+from whisper_stream.utils.data import load_data_samples_from_path
 
 
 def get_version() -> None:
     print(__version__)
 
 
-__all__: list[str] = ["__version__", "get_version", "load_data_sample_from_path", "pipeline_factory"]
+__all__: list[str] = ["__version__", "get_version", "load_data_samples_from_path", "JAXPipeline"]

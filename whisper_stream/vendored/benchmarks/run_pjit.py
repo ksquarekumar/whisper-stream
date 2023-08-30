@@ -10,7 +10,7 @@ from jax.experimental.compilation_cache import compilation_cache as cc
 from jax.sharding import PartitionSpec as P
 from transformers import WhisperConfig, WhisperProcessor
 
-from whisper_stream.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
+from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
 
 datasets.logging.set_verbosity(datasets.logging.CRITICAL)
 

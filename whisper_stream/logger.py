@@ -1,9 +1,11 @@
+# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 from enum import IntEnum
 import os
 from platform import python_version, architecture
 import sys
 from typing import Any, Literal, NewType, TypeGuard
-import orjson
 import structlog
 from structlog.types import Processor
 import importlib_metadata
@@ -76,14 +78,16 @@ def _get_processors() -> list[structlog.types.Processor]:
         # Pretty printing when we run in a terminal session.
         processors = [
             *shared_processors,
-            structlog.dev.ConsoleRenderer(),
+            structlog.dev.ConsoleRenderer(repr_native_str=True),
         ]
     else:
         # Print JSON when we run in production
         processors = [
             *shared_processors,
             structlog.processors.dict_tracebacks,
-            structlog.processors.JSONRenderer(serializer=orjson.dumps),
+            structlog.processors.KeyValueRenderer(
+                key_order=["event", "time_taken"], drop_missing=True, repr_native_str=True
+            ),
         ]
 
     return processors

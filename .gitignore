@@ -145,3 +145,7 @@ dmypy.json
 # Solutions
 .solutions/
 whisper_stream/.DS_Store
+
+# JAX
+jax_cache
+**/jax_cache

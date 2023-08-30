@@ -52,9 +52,9 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from whisper_stream.whisper_jax.layers import with_sharding_constraint
+from whisper_stream.vendored.whisper_jax.layers import with_sharding_constraint
 
-from whisper_stream.whisper_jax import layers
+from whisper_stream.vendored.whisper_jax import layers
 
 logger = logging.get_logger(__name__)
 

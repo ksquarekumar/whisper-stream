@@ -51,7 +51,7 @@ RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
 # hadolint ignore=DL3045
 COPY ssm.ssh /usr/local/bin/ssm.ssh
 
-# hadolint ignore=DL3013
+# hadolint ignore=DL3013,SC2261
 RUN \
     # CONDA/MAMBA Corrupts htop/nano from apt
     mamba install htop nano \

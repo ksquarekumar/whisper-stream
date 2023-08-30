@@ -1,34 +1,25 @@
-# use this only when you know what you are doing
 # prefer pip
-name: whisper_py310
+name: whisper_py311
 channels:
+  - nvidia/label/cuda-11.8.0
+  - nvidia
+  - huggingface
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
-  - flax
-  - jax
-  - transformers>=4.27.4
-  - ffmpeg
-  - cached-property
-  - accelerate>=0.20.3
-  - numba
-  - pyarrow
+  - python~=3.11
+  - pip>=23.2.1
+  - wheel
   - build
   - flit
-  - joblib
-  - pathos
+  - cudatoolkit~=11.8.0
+  - cudnn~=8.8.0
+  - cuda-nvcc
+  - orjson
   - dill
+  - pathos
+  - joblib
+  - accelerate>=0.20.3
+  - transformers>=4.27.4
+  - cached-property
   - virtualenv
-  - jupyter
-  - ipython
-  - ipykernel
-  - ipywidgets
-  - notebook
-  - nbconvert
-  - tqdm
-  - ipywidgets
-  - nodejs
-  - widgetsnbextension
-  - black
-  - mypy

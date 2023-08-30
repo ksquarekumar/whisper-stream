@@ -17,25 +17,23 @@ pip install "whisper-stream[data] @ git+https://github.com/ksquarekumar/whisper-
 
 ### In Development Mode
 
-- with `conda+pip`
+- with `conda`
 
 ```console
 conda install mamba
 mamba env create -f conda.yml
 mamba activate whisper_py310
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-virtualenv ./.venv --system-site-packages
-source ./.venv/bin/activate
 pip install -e ."[data,benchmarks,dev,test]"
 pre-commit install --install-hooks
 ```
 
-- with `pyenv+pip`
+- with `pyenv+conda`
 
 ```console
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-virtualenv ./.venv --system-site-packages
-source ./.venv/bin/activate
+pyenv install mambaforge-22.9.0-3
+pyenv shell mambaforge-22.9.0-3 && pyenv local mambaforge-22.9.0-3
+mamba env create -f conda.yml
+mamba activate whisper_py310
 pip install -e ."[data,benchmarks,dev,test]"
 pre-commit install --install-hooks
 ```

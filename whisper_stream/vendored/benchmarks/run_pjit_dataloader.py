@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import WhisperProcessor
 
-from whisper_stream.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
+from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
 
 cc.initialize_cache("./jax_cache")
 jax.config.update("jax_array", True)

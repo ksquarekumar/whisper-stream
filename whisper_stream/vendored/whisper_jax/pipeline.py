@@ -28,9 +28,9 @@ from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
 from transformers.pipelines.audio_utils import ffmpeg_read
 from transformers.utils import logging
 
-from whisper_stream.whisper_jax.modeling_flax_whisper import FlaxWhisperForConditionalGeneration
-from whisper_stream.whisper_jax.partitioner import PjitPartitioner
-from whisper_stream.whisper_jax.train_state import InferenceState
+from whisper_stream.vendored.whisper_jax.modeling_flax_whisper import FlaxWhisperForConditionalGeneration
+from whisper_stream.vendored.whisper_jax.partitioner import PjitPartitioner
+from whisper_stream.vendored.whisper_jax.train_state import InferenceState
 
 logger = logging.get_logger(__name__)
 

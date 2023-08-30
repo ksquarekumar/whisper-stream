@@ -1,6 +1,9 @@
+# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
+#
+# SPDX-License-Identifier: Apache-2.0
 import inspect
 from types import MappingProxyType
-from typing import Any, Final, Type, TypeGuard, Callable
+from typing import Any, Literal, Type, TypeGuard, Callable
 
 
 def is_bytes(x: Any | None) -> TypeGuard[bytes]:
@@ -31,7 +34,7 @@ def parse_known_kwargs(func_or_class: Callable[..., Any] | Type[Any], kwargs: di
     return _safe_kwargs
 
 
-language_ids: Final[set[str]] = {
+LanguageIDs = Literal[
     "<|af|>",
     "<|am|>",
     "<|ar|>",
@@ -131,7 +134,7 @@ language_ids: Final[set[str]] = {
     "<|yi|>",
     "<|yo|>",
     "<|zh|>",
-}
+]
 
 
-__all__: list[str] = ["is_bytes", "is_bytes_array", "parse_known_kwargs", "language_ids"]
+__all__: list[str] = ["is_bytes", "is_bytes_array", "parse_known_kwargs", "LanguageIDs"]

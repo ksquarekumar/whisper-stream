@@ -41,7 +41,7 @@ Whisper JAX makes use of JAX's [`pmap`](https://jax.readthedocs.io/en/latest/_au
 compiled the first time it is called. Thereafter, the function will be _cached_, enabling it to be run in super-fast time:
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperPipeline
 
 # instantiate pipeline
 pipeline = FlaxWhisperPipeline("openai/whisper-large-v2")
@@ -62,7 +62,7 @@ of the model weights.
 For most GPUs, the dtype should be set to `jnp.float16`. For A100 GPUs or TPUs, the dtype should be set to `jnp.bfloat16`:
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperPipeline
 import jax.numpy as jnp
 
 # instantiate pipeline in bfloat16
@@ -79,7 +79,7 @@ provides a 10x speed-up compared to transcribing the audio samples sequentially,
 To enable batching, pass the `batch_size` parameter when you instantiate the pipeline:
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperPipeline
 
 # instantiate pipeline with batching
 pipeline = FlaxWhisperPipeline("openai/whisper-large-v2", batch_size=16)
@@ -113,7 +113,7 @@ In the following code snippet, we instantiate the model in bfloat16 precision wi
 returning timestamps tokens:
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperPipeline
 import jax.numpy as jnp
 
 # instantiate pipeline with bfloat16 and enable batching
@@ -137,7 +137,7 @@ from flax.training.common_utils import shard
 from jax import device_get, pmap
 from transformers import WhisperProcessor
 
-from whisper_stream.whisper_jax import FlaxWhisperForConditionalGeneration
+from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration
 
 # load the processor and model
 processor = WhisperProcessor.from_pretrained("openai/whisper-large-v2")
@@ -195,7 +195,7 @@ the next time they are required. Note that converting weights from PyTorch to Fl
 For example, to convert the fine-tuned checkpoint [`sanchit-gandhi/whisper-small-hi`](https://huggingface.co/sanchit-gandhi/whisper-small-hi) from the blog post [Fine-Tuning Whisper](https://huggingface.co/blog/fine-tune-whisper):
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperForConditionalGeneration, FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, FlaxWhisperPipeline
 import jax.numpy as jnp
 
 checkpoint_id = "sanchit-gandhi/whisper-small-hi"
@@ -221,7 +221,7 @@ The following code snippet demonstrates how data parallelism can be achieved usi
 an entirely equivalent way to `pmap`:
 
 ```python
-from whisper_stream.whisper_jax import FlaxWhisperPipeline
+from whisper_stream.vendored.whisper_jax import FlaxWhisperPipeline
 import jax.numpy as jnp
 
 # 2D parameter and activation partitioning for DP
@@ -253,7 +253,7 @@ import jax.numpy as jnp
 from flax.core.frozen_dict import freeze
 from jax.sharding import PartitionSpec as P
 
-from whisper_stream.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
+from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
 
 
 # 2D parameter and activation partitioning for DP
