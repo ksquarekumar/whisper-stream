@@ -148,4 +148,6 @@ whisper_stream/.DS_Store
 
 # JAX
 jax_cache
+.jax_cache
 **/jax_cache
+**/.jax_cache

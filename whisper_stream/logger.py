@@ -103,19 +103,23 @@ CONTEXT_VARS = {
 _LOGGERS: dict[str, BoundLogger] = {}
 
 
-def get_application_logger(name: str, binds: dict[str, Any] | None = None) -> BoundLogger:
+def get_application_logger(
+    name: str, min_log_level: LOG_LEVEL_NAMES | None = "INFO", binds: dict[str, Any] | None = None
+) -> BoundLogger:
     # quicker fast path
     if name in _LOGGERS:
         return _LOGGERS[name]
     if not structlog.is_configured():
-        setup_logging()
+        setup_logging(min_log_level=min_log_level)
     _binds = binds or {}
     _LOGGERS[name] = BoundLogger(structlog.get_logger(**_binds, **CONTEXT_VARS))
     return _LOGGERS[name]
 
 
-def setup_logging(setup_snowflake: Literal["create", "skip"] = "create") -> None:
-    _log_level: LogLevels = get_log_level_from_name(name=os.environ.get("LOG_LEVEL", "INFO"))
+def setup_logging(min_log_level: LOG_LEVEL_NAMES | None = "INFO") -> None:
+    _log_level: LogLevels = get_log_level_from_name(
+        name=min_log_level if min_log_level else os.environ.get("LOG_LEVEL", "INFO")
+    )
     logging.basicConfig(level=_log_level.value)
     structlog.configure(
         processors=_get_processors(),
@@ -124,4 +128,4 @@ def setup_logging(setup_snowflake: Literal["create", "skip"] = "create") -> None
     structlog.contextvars.bind_contextvars(**CONTEXT_VARS)
 
 
-__all__: list[str] = ["BoundLogger", "get_application_logger"]
+__all__: list[str] = ["BoundLogger", "get_application_logger", "LOG_LEVEL_NAMES"]
