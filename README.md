@@ -9,11 +9,10 @@
 
 ## Installation
 
-### From Git
-`cuda_variant` can be either of `cuda11_local` or `cuda11_pip`
+### Clone Repo
+
 ```console
-pip install --upgrade "jax[{cuda_variant}]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install "whisper-stream[{dependency}] @ git+https://github.com/ksquarekumar/whisper-stream.git@main"
+git clone "git+https://github.com/ksquarekumar/whisper-stream.git"
 ```
 
 ### Installing with dependendcies
