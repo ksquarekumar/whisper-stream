@@ -13,8 +13,11 @@ dependencies:
   - build
   - flit
   - cudatoolkit~=11.8.0
-  - cudnn~=8.8.0
+  - cudnn~=8.9.0
+  - jaxlib=*=*cuda*
+  - jax
   - cuda-nvcc
+  - nccl
   - orjson
   - dill
   - pathos
