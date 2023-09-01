@@ -38,7 +38,6 @@ mamba activate base
 pyenv install mambaforge-22.9.0-3
 mamba activate base
 mamba env create -f conda.yml
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 pip install .
 mamba activate whisper_py311
 ```
@@ -66,7 +65,6 @@ mamba activate base
 pyenv install mambaforge-22.9.0-3
 mamba activate base
 mamba env create -f conda.yml
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 pip install -e ."[data,benchmarks,dev,test]"
 mamba activate whisper_py311
 pre-commit install --install-hooks
