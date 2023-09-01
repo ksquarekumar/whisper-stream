@@ -10,31 +10,65 @@
 ## Installation
 
 ### From Git
-
+`cuda_variant` can be either of `cuda11_local` or `cuda11_pip`
 ```console
-pip install "whisper-stream[data] @ git+https://github.com/ksquarekumar/whisper-stream.git@main"
+pip install --upgrade "jax[{cuda_variant}]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install "whisper-stream[{dependency}] @ git+https://github.com/ksquarekumar/whisper-stream.git@main"
 ```
 
-### In Development Mode
+### Installing with dependendcies
 
-- with `conda`
-
+- install `pyenv`
 ```console
-conda install mamba
-mamba env create -f conda.yml
-mamba activate whisper_py310
-pip install -e ."[data,benchmarks,dev,test]"
-pre-commit install --install-hooks
+curl https://pyenv.run | bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.profile
+echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.profile
+echo 'eval "$(pyenv init -)"' >> ~/.profile
+exec "$SHELL"
 ```
 
-- with `pyenv+conda`
-
+- installing `conda/mamba` with `pyenv`
 ```console
 pyenv install mambaforge-22.9.0-3
-pyenv shell mambaforge-22.9.0-3 && pyenv local mambaforge-22.9.0-3
+mamba activate base
+```
+
+- creating `whisper_py311` environment with `conda/mamba`
+```console
+pyenv install mambaforge-22.9.0-3
+mamba activate base
 mamba env create -f conda.yml
-mamba activate whisper_py310
+pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install .
+mamba activate whisper_py311
+```
+
+
+### Installing in Development Mode with dependendcies
+
+- install `pyenv`
+```console
+curl https://pyenv.run | bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.profile
+echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.profile
+echo 'eval "$(pyenv init -)"' >> ~/.profile
+exec "$SHELL"
+```
+
+- installing `conda/mamba` with `pyenv`
+```console
+pyenv install mambaforge-22.9.0-3
+mamba activate base
+```
+
+- creating `whisper_py311` environment with `conda/mamba`
+```console
+pyenv install mambaforge-22.9.0-3
+mamba activate base
+mamba env create -f conda.yml
+pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 pip install -e ."[data,benchmarks,dev,test]"
+mamba activate whisper_py311
 pre-commit install --install-hooks
 ```
 
