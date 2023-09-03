@@ -102,8 +102,6 @@ pip install .["feature"]
 
 - with `conda` as the system's environment manager
 
-- install `pyenv`
-
 ```console
 conda install mamba
 mamba env update -f conda.yml

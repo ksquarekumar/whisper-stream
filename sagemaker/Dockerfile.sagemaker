@@ -50,7 +50,7 @@ RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
 
 
 # hadolint ignore=DL3045
-COPY ssm.ssh /usr/local/bin/ssm.ssh
+COPY scripts/ssm.ssh /usr/local/bin/ssm.ssh
 
 # hadolint ignore=DL3013,SC2261
 RUN \
@@ -65,7 +65,7 @@ RUN \
     && pip install --no-cache-dir --upgrade nvidia-pyindex \
     && pip install --no-cache-dir --upgrade tensorrt==8.5.3.1 nvidia-pytriton>=0.2.4 "pyzmq~=23.0" "PyYAML<5.5,>=3.10" \
     # ML Libs & Deps [torch provides it's own cuda]
-    flax "transformers[torch]>=4.27.4" faster-whisper cached-property accelerate>=0.20.3 numba orjson pathos dill joblib ctranslate2 \
+    flax "transformers[torch]>=4.31.2" faster-whisper cached-property accelerate>=0.20.3 numba orjson pathos dill joblib ctranslate2 \
     # AWS Stuff
     sagemaker-training multi-model-server \
     # Pre-Install Proejct Packages
