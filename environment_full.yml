@@ -20,6 +20,10 @@ dependencies:
   - cuda-nvcc
   - nccl
   - mkl
+  # profilers
+  - filprofiler
+  - yappi
+  - viztracer
   # dl
   - transformers
   - datasets

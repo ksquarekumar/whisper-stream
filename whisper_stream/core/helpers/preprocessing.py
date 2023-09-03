@@ -22,7 +22,6 @@
 #
 from time import time
 from typing import Callable
-import numpy as np
 import librosa
 
 from transformers.pipelines.audio_utils import ffmpeg_read
@@ -50,15 +49,18 @@ def preprocess_inputs_with_ffmpeg(
     sampling_rate: int = 16000,
     parallel_backend: Parallel = DEFAULT_PARALLEL_BACKEND,
     logger: BoundLogger | None = None,
-) -> tuple[AudioFilesDType, int]:
+) -> tuple[list[AudioFilesDType], int]:
     # returns batch_size x VEC[data_length[float32]],for a single input batch_size will be 1
     # so returned array will have a shape of (batches, data_length)
     start: float = time()
-    converted: AudioFilesDType = np.array(
-        parallel_backend(
-            delayed(ffmpeg_read)(d, sampling_rate=sampling_rate) for d in data
-        ),
-        dtype=object,
+    converted: list[AudioFilesDType] = (
+        list(
+            parallel_backend(
+                delayed(ffmpeg_read)(d, sampling_rate=sampling_rate) for d in data
+            )
+        )
+        if len(data) > 1
+        else [ffmpeg_read(data[0], sampling_rate=sampling_rate)]
     )
     if logger is not None:
         logger.info(
@@ -68,28 +70,33 @@ def preprocess_inputs_with_ffmpeg(
 
 
 def resample_inputs_with_fn(
-    data: AudioFilesDType,
+    data: list[AudioFilesDType],
     in_sampling_rate: int,
     out_sampling_rate: int = 16000,
     resampler_fn: Callable[..., AudioFilesDType] = DEFAULT_RESAMPLER_FN,
     parallel_backend: Parallel = DEFAULT_PARALLEL_BACKEND,
     logger: BoundLogger | None = None,
-) -> tuple[AudioFilesDType, float]:
+) -> tuple[list[AudioFilesDType], float]:
     # accepts batch_size x VEC[data_length[float32]]
     # returns batch_size x VEC[data_length[float32]]
     start: float = time()
-    converted: AudioFilesDType = np.array(
-        parallel_backend(
-            delayed(resampler_fn)(
-                d, orig_sr=in_sampling_rate, target_sr=out_sampling_rate
+    converted: list[AudioFilesDType] = (
+        list(
+            parallel_backend(
+                delayed(resampler_fn)(
+                    d, orig_sr=in_sampling_rate, target_sr=out_sampling_rate
+                )
+                for d in data
             )
-            for d in data
-        ),
-        dtype=object,
+        )
+        if len(data) > 1
+        else [
+            resampler_fn(data[0], orig_sr=in_sampling_rate, target_sr=out_sampling_rate)
+        ]
     )
     if logger is not None:
         logger.info(
-            f"resampling", num_items=data.shape[0], time_taken=f"{time()-start:.2}s"
+            f"resampling", num_items=len(data), time_taken=f"{time()-start:.2}s"
         )
     return converted, float(in_sampling_rate) / float(out_sampling_rate)
 

@@ -7,4 +7,4 @@ path = "./.venv"
 
 [virtualenvs.options]
 always-copy = false
-system-site-packages = false
+system-site-packages = true

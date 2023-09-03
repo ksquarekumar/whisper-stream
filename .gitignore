@@ -151,3 +151,4 @@ jax_cache
 .jax_cache
 **/jax_cache
 **/.jax_cache
+notebooks/viztracer_report.json

@@ -27,7 +27,10 @@ import jax.numpy as jnp
 
 from jax._src.numpy.lax_numpy import _ScalarMeta
 
-from whisper_stream.core.constants import CACHE_PATH_PREFIX, create_package_directories
+from whisper_stream.core.constants import (
+    CACHE_PATH_PREFIX,
+    create_package_directories_if_not_exists,
+)
 from whisper_stream.core.helpers.parallel import get_backend, Parallel
 from whisper_stream.core.logger import BoundLogger, get_application_logger
 
@@ -70,13 +73,10 @@ FLAX_DEFAULT_DP_LOGICAL_AXES: JaxShardingRulesetType = (
 )
 
 # import side-effects
-_scope: Final[str] = "whisper-steam:jax-pipelines:init"
-_temp_logger: Final[BoundLogger] = get_application_logger(_scope)
-
-create_package_directories(JAX_CACHE_PATH, _temp_logger)
-
-_temp_logger.info("finished setting up package directories")
-del _temp_logger, _scope
+create_package_directories_if_not_exists(
+    scope="whisper-steam:jax-pipelines:init",
+    path_or_paths=JAX_CACHE_PATH,
+)
 # side-effects done
 
 __all__: list[str] = [
