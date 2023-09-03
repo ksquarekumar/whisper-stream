@@ -26,15 +26,20 @@ from typing import Final, Literal
 from whisper_stream.core.logger import get_application_logger, BoundLogger
 
 
-def create_package_directories(
-    path_or_paths: Path | list[Path], logger: BoundLogger
+def create_package_directories_if_not_exists(
+    scope: str, path_or_paths: Path | list[Path]
 ) -> None:
     _paths: list[Path] = (
         path_or_paths if isinstance(path_or_paths, list) else [path_or_paths]
     )
-    for _path in _paths:
-        logger.info(f"creating directories for package", path=_path)
-        _path.mkdir(exist_ok=True)
+    _paths_to_create = [path for path in _paths if not path.exists()]
+
+    if len(_paths_to_create) > 0:
+        _logger: Final[BoundLogger] = get_application_logger(scope)
+        for _path in _paths_to_create:
+            _logger.info(f"creating directories for package", path=_path)
+            _path.mkdir(exist_ok=True)
+        _logger.info("finished setting up package directories")
 
 
 PACKAGE_COMMON_PATH_PREFIX: Final[Path] = Path.home() / ".whisper_stream"
@@ -53,20 +58,14 @@ WhisperValidCheckpoints = Literal[
 WhisperValidTasks = Literal["transcribe", "translate"]
 
 # import side-effects
-_scope: Final[str] = "whisper-steam:core:init"
-_temp_logger: Final[BoundLogger] = get_application_logger(_scope)
-
-
-create_package_directories(
-    [PACKAGE_COMMON_PATH_PREFIX, CACHE_PATH_PREFIX, DEFAULT_DATA_PATH], _temp_logger
+create_package_directories_if_not_exists(
+    scope="whisper-steam:core:init",
+    path_or_paths=[PACKAGE_COMMON_PATH_PREFIX, CACHE_PATH_PREFIX, DEFAULT_DATA_PATH],
 )
-_temp_logger.info("finished setting up package directories")
-
-del _temp_logger, _scope
 # side-effects done
 
 __all__: list[str] = [
-    "create_package_directories",
+    "create_package_directories_if_not_exists",
     "PACKAGE_COMMON_PATH_PREFIX",
     "CACHE_PATH_PREFIX",
     "DEFAULT_DATA_PATH",

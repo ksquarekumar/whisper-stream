@@ -403,7 +403,7 @@ class JAXStreamingPipeline:
 
     def _iterate_batch_for_chunkable(
         self,
-        inputs: AudioFilesDType,
+        single_input: AudioFilesDType,
         chunk_len: int,
         stride_left: int,
         stride_right: int,
@@ -412,7 +412,7 @@ class JAXStreamingPipeline:
     ) -> ChunkedInputsGenerator:
         for batch_counter, iteration_input in enumerate(
             iterate_batch_for_chunkable_audio(
-                inputs=inputs,
+                single_input=single_input,
                 chunk_len=chunk_len,
                 stride_left=stride_left,
                 stride_right=stride_right,
@@ -444,7 +444,7 @@ class JAXStreamingPipeline:
 
     def _generate_batching_info_for_chunkable(
         self,
-        inputs: AudioFilesDType,
+        inputs: list[AudioFilesDType],
         chunk_length_s: float,
         stride_length_s: float | None,
         batch_size: int,
@@ -461,10 +461,16 @@ class JAXStreamingPipeline:
             ratio=ratio,
             logger=self.logger,
         ):
-            _inputs, _chunk_len, _stride_left, _stride_right, _batch_size = batch_input
+            (
+                _single_input,
+                _chunk_len,
+                _stride_left,
+                _stride_right,
+                _batch_size,
+            ) = batch_input
 
             yield from self._iterate_batch_for_chunkable(
-                inputs=_inputs,
+                single_input=_single_input,
                 chunk_len=_chunk_len,
                 stride_left=_stride_left,
                 stride_right=_stride_right,
@@ -474,13 +480,17 @@ class JAXStreamingPipeline:
 
     def _preprocess_batches_for_unchunkable(
         self,
-        inputs: AudioFilesDType,
+        inputs: list[AudioFilesDType],
         batch_size: int,
         target_sampling_rate: int,
         do_normalize: bool = True,
     ) -> ChunkedInputsGenerator:
-        unchunkable_inputs = inputs
-        batches = split_array_on_primary_axis(unchunkable_inputs, batch_size)
+        unchunkable_inputs: list[AudioFilesDType] = inputs
+        batches: list[list[AudioFilesDType]] = (
+            split_array_on_primary_axis(unchunkable_inputs, batch_size)
+            if len(unchunkable_inputs) > 1
+            else [inputs]
+        )
 
         self.logger.debug(
             "feature_extractor(preprocess_batches_for_unchunkable):gather",
@@ -490,7 +500,7 @@ class JAXStreamingPipeline:
             num_files=len(unchunkable_inputs),
             batch_size=batch_size,
             num_batches=len(batches),
-            batches=[batch.shape for batch in batches],
+            batches=[f"len={len(batch)}" for batch in batches],
             target_sampling_rate=target_sampling_rate,
         )
 
@@ -502,7 +512,7 @@ class JAXStreamingPipeline:
                 return_tensors="np",
                 do_normalize=do_normalize,
             )
-            processed = {"fused_inputs": True, **processed}
+            _processed: dict[str, Any] = {"fused_inputs": True, **processed}
             self.logger.debug(
                 "feature_extractor(preprocess_batches_for_unchunkable):dispatch",
                 size=len(_batched_input),
@@ -511,7 +521,7 @@ class JAXStreamingPipeline:
                 keys=processed.keys(),
                 iteration=f"{idx}/{len(batches)}",
             )
-            yield processed
+            yield _processed
 
     def preprocess_batch(
         self,
@@ -590,16 +600,27 @@ class JAXStreamingPipeline:
             fused_outputs=fused_outputs,
         )
         if fused_outputs == True:
-            results: list[tuple[str, dict[Any, Any]]] = list(
-                parallel_backend(
-                    delayed(self.tokenizer._decode_asr)(
-                        [_model_output],
+            results: list[tuple[str, dict[Any, Any]]] = (
+                list(
+                    parallel_backend(
+                        delayed(self.tokenizer._decode_asr)(
+                            [_model_output],
+                            return_timestamps=return_timestamps,
+                            return_language=return_language,
+                            time_precision=time_precision,
+                        )
+                        for _model_output in _model_outputs
+                    )
+                )
+                if len(_model_outputs) > 1
+                else [
+                    self.tokenizer._decode_asr(
+                        _model_outputs,
                         return_timestamps=return_timestamps,
                         return_language=return_language,
                         time_precision=time_precision,
                     )
-                    for _model_output in _model_outputs
-                )
+                ]
             )
             return [{"text": result[0], **result[1]} for result in results]
 
@@ -749,7 +770,7 @@ class JAXStreamingPipeline:
                     fused_outputs=True,
                 )
                 yield post_processed_fused
-            if batch.get("terminal") is None:
+            if batch.get("terminal") is False:
                 self.model_outputs.append(output)
                 continue
             if batch.get("terminal") == True:
@@ -826,7 +847,7 @@ class JAXStreamingPipeline:
         sampling_rate: int = 16000,
         parallel_backend: Parallel = JAXThreadParallel,  # Always takes a list of inputs
         logger: BoundLogger | None = None,
-    ) -> tuple[AudioFilesDType, int]:
+    ) -> tuple[list[AudioFilesDType], int]:
         # returns batch_size x VEC[data_length[float32]],for a single input batch_size will be 1
         # so returned array will have a shape of (batches, data_length)
         return preprocess_inputs_with_ffmpeg(
@@ -838,13 +859,13 @@ class JAXStreamingPipeline:
 
     def resample_inputs_with_fn(
         self,
-        data: AudioFilesDType,  #
+        data: list[AudioFilesDType],  #
         resampler_fn: Callable[..., AudioFilesDType],
         in_sampling_rate: int,
         out_sampling_rate: int = 16000,
         parallel_backend: Parallel = JAXThreadParallel,
         logger: BoundLogger | None = None,
-    ) -> tuple[AudioFilesDType, float]:
+    ) -> tuple[list[AudioFilesDType], float]:
         # accepts batch_size x VEC[data_length[float32]]
         # returns batch_size x VEC[data_length[float32]]
         return resample_inputs_with_fn(
