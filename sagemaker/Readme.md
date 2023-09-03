@@ -53,7 +53,10 @@ aws --region ${DESTINATION_REGION} ecr get-login-password | docker login --usern
 
 ```shell
 # Build and push the image
-docker buildx build -f SageMaker/Dockerfile.SageMaker \
+docker buildx build \
+  --progress=plain \
+  -f sagemaker/Dockerfile.sagemaker \
+  --cache-from "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
   --build-arg USER_NAME="${USER_NAME}" \
   --build-arg EMAIL_ADDRESS="${EMAIL_ADDRESS}" \
   --build-arg SOURCE_ACCOUNT_ID="${SOURCE_ACCOUNT_ID}" \
@@ -62,10 +65,10 @@ docker buildx build -f SageMaker/Dockerfile.SageMaker \
   --build-arg SOURCE_IMAGE_VERSION="${SOURCE_IMAGE_VERSION}" \
   -t "${DESTINATION_IMAGE_VERSION}" \
   -t "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
-  "./SageMaker"
+  "./sagemaker"
 ```
 
-## Test the built image
+## Testing the built image
 
 ### Verify the Image runs
 
@@ -89,21 +92,23 @@ curl http://0.0.0.0:8888/api/kernelspecs
 docker push "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}"
 ```
 
-## Using with SageMaker Studio
+## Using this `image` with sageMaker studio
 
-### Create a SageMaker Image (SMI) `image` and `image-version` with the built image in `ECR`.
+### Create a SageMaker Image (SMI) `image` and an `image-version` with the newly built image in `ECR`.
 
-    - Request parameter RoleArn value is used to get ECR image information when and Image version is created.
-    - After creating Image, create an Image Version during which SageMaker stores image metadata like SHA etc.
-    - every time an image is updated in ECR, a new image version should be created.
+- After creating an `SMI` ` Image``, create an  `Image-Version` during which SageMaker stores image metadata like ECR / SHA / BACKEND TYPES etc.
+- Request parameter `RoleArn` value is used to get ECR image information when an `Image-Version` is created.
+- _A **new** `Image-Version` should be created every time an image is updated in ECR._
 
 ```shell
+# Create Parent SMI Image (Only once per ECR Image)
 aws --region "${DESTINATION_REGION}" sagemaker create-image \
   --description "Custom container image for SageMaker with JAX" \
   --image-name "${DESTINATION_IMAGE_VERSION}" \
   --display-name "${DESTINATION_IMAGE_VERSION}" \
   --role-arn "${ROLE_ARN}"
 
+# Create an Image-Version for the Image (For every image rebuild)
 aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
   --image-name "${DESTINATION_IMAGE_VERSION}" \
   --aliases jax cu11 \
@@ -118,13 +123,16 @@ aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
 
 ### Verify the `image-version` is created successfully.
 
-    - Do NOT proceed if image-version is in CREATE_FAILED state or in any other state apart from CREATED.
+- **Do NOT proceed** if `Image-Version` is in `CREATE_FAILED` state or in any other state apart from `CREATED`.
 
 ```shell
 aws --region "${DESTINATION_REGION}" sagemaker describe-image-version --image-name "${DESTINATION_IMAGE_VERSION}"
 ```
 
-### Create a `AppImageConfig` for this image
+### Create an `AppImageConfig` for this image
+
+- This is the underlying config that defines the run time behavior, and is a general config that can be attached to any image that works with it.
+- Need to do it only once per defined `ECR/SMI` image, and although it can be shared across multiple `SMI` images, it is recommended to keep it `1:1` for `SMI:Environment` better reproducibility.
 
 ```shell
 aws --region "${DESTINATION_REGION}" sagemaker create-app-image-config \
@@ -142,7 +150,9 @@ aws --region "${DESTINATION_REGION}" sagemaker create-app-image-config \
     }'
 ```
 
-### Update your `domain-id` to use the newly created `AppImageConfig`
+### Update your `user` and `domain-id` to use the newly created `AppImageConfig`
+
+- This is where the `AppConfig` gets attached to our `SMI` Image.
 
 ```shell
 aws --region "${DESTINATION_REGION}" sagemaker update-domain \
@@ -159,3 +169,22 @@ aws --region "${DESTINATION_REGION}" sagemaker update-domain \
             ]
     }'
 ```
+
+```shell
+aws --region "${DESTINATION_REGION}" sagemaker update-user-profile \
+  --domain-id "${DOMAIN_ID}" \
+  --user-profile-name "${USERNAME}"
+--user-settings \
+  '{
+    "KernelGatewayAppSettings": {
+    "LifecycleConfigArns": [],
+    "CustomImages": [
+                {
+                    "ImageName": "${DESTINATION_IMAGE_VERSION}",
+                    "AppImageConfigName": "jax-cu11-config"
+                }
+            ]
+    }'
+```
+
+---

@@ -11,7 +11,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import WhisperProcessor
 
-from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
+from whisper_stream.vendored.whisper_jax import (
+    FlaxWhisperForConditionalGeneration,
+    InferenceState,
+    PjitPartitioner,
+)
 
 cc.initialize_cache("./jax_cache")
 jax.config.update("jax_array", True)
@@ -55,7 +59,9 @@ def init_fn():
     decoder_attention_mask = jnp.ones_like(decoder_input_ids)
 
     batch_size, sequence_length = decoder_input_ids.shape
-    decoder_position_ids = jnp.broadcast_to(jnp.arange(sequence_length)[None, :], (batch_size, sequence_length))
+    decoder_position_ids = jnp.broadcast_to(
+        jnp.arange(sequence_length)[None, :], (batch_size, sequence_length)
+    )
 
     rng = jax.random.PRNGKey(0)
     init_params = model.module.init(
@@ -93,7 +99,9 @@ p_shard_params = partitioner.partition(model.to_bf16, (params_spec,), params_spe
 
 
 def generate(params, input_features):
-    output_ids = model.generate(input_features, params=params, max_length=NUM_TOKENS).sequences
+    output_ids = model.generate(
+        input_features, params=params, max_length=NUM_TOKENS
+    ).sequences
     return output_ids
 
 
@@ -120,13 +128,22 @@ def preprocess(batch):
     return batch
 
 
-librispeech = load_dataset("speechcolab/gigaspeech", "l", split="train", streaming=STREAMING, use_auth_token=True)
+librispeech = load_dataset(
+    "speechcolab/gigaspeech",
+    "l",
+    split="train",
+    streaming=STREAMING,
+    use_auth_token=True,
+)
 librispeech_features = librispeech.features.keys()
 
 librispeech_processed = librispeech.map(preprocess, remove_columns=librispeech_features)
 
 eval_dataloader = DataLoader(
-    librispeech_processed, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, persistent_workers=True
+    librispeech_processed,
+    batch_size=BATCH_SIZE,
+    num_workers=NUM_WORKERS,
+    persistent_workers=True,
 )
 
 all_load_times = 0
@@ -141,7 +158,10 @@ for i, batch in tqdm(enumerate(eval_dataloader)):
     input_batch_size = input_features.shape[0]
 
     if input_batch_size != BATCH_SIZE:
-        padding = np.zeros([BATCH_SIZE - input_batch_size, *input_features.shape[1:]], input_features.dtype)
+        padding = np.zeros(
+            [BATCH_SIZE - input_batch_size, *input_features.shape[1:]],
+            input_features.dtype,
+        )
         input_features = np.concatenate([input_features, padding])
 
     generate_start = time.time()

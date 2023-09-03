@@ -21,7 +21,9 @@ params = jax_utils.replicate(params)
 
 
 def generate_fn(batch):
-    pred_ids = model.generate(batch, params=params, max_new_tokens=NUM_TOKENS, min_new_tokens=NUM_TOKENS)
+    pred_ids = model.generate(
+        batch, params=params, max_new_tokens=NUM_TOKENS, min_new_tokens=NUM_TOKENS
+    )
     return pred_ids.sequences
 
 
@@ -39,7 +41,9 @@ def preprocess(batch):
 
 
 # load a dataset of 73 audio samples
-librispeech = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
+librispeech = load_dataset(
+    "hf-internal-testing/librispeech_asr_dummy", "clean", split="validation"
+)
 dataset_processed = librispeech.map(preprocess, remove_columns=librispeech.column_names)
 
 for batch_size in BATCH_SIZES:

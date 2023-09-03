@@ -10,7 +10,11 @@ from jax.experimental.compilation_cache import compilation_cache as cc
 from jax.sharding import PartitionSpec as P
 from transformers import WhisperConfig, WhisperProcessor
 
-from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration, InferenceState, PjitPartitioner
+from whisper_stream.vendored.whisper_jax import (
+    FlaxWhisperForConditionalGeneration,
+    InferenceState,
+    PjitPartitioner,
+)
 
 datasets.logging.set_verbosity(datasets.logging.CRITICAL)
 
@@ -64,11 +68,17 @@ def main():
         ).input_features[0]
         return batch
 
-    librispeech = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
-    dataset_processed = librispeech.map(preprocess, remove_columns=librispeech.column_names)
+    librispeech = load_dataset(
+        "hf-internal-testing/librispeech_asr_dummy", "clean", split="validation"
+    )
+    dataset_processed = librispeech.map(
+        preprocess, remove_columns=librispeech.column_names
+    )
 
     config = WhisperConfig.from_pretrained(f"openai/whisper-{CHECKPOINT}")
-    model = FlaxWhisperForConditionalGeneration(config, _do_init=False, dtype=jnp.bfloat16)
+    model = FlaxWhisperForConditionalGeneration(
+        config, _do_init=False, dtype=jnp.bfloat16
+    )
     # to init the params
     params = model.init_weights(model.key, model.input_shape)
 
@@ -82,7 +92,9 @@ def main():
         decoder_attention_mask = jnp.ones_like(decoder_input_ids)
 
         batch_size, sequence_length = decoder_input_ids.shape
-        decoder_position_ids = jnp.broadcast_to(jnp.arange(sequence_length)[None, :], (batch_size, sequence_length))
+        decoder_position_ids = jnp.broadcast_to(
+            jnp.arange(sequence_length)[None, :], (batch_size, sequence_length)
+        )
 
         rng = jax.random.PRNGKey(0)
         init_params = model.module.init(
@@ -118,7 +130,9 @@ def main():
     p_shard_params = partitioner.partition(model.to_bf16, (params_spec,), params_spec)
 
     def generate(params, input_features):
-        output_ids = model.generate(input_features, params=params, max_new_tokens=25).sequences
+        output_ids = model.generate(
+            input_features, params=params, max_new_tokens=25
+        ).sequences
         return output_ids
 
     p_generate = partitioner.partition(
@@ -132,7 +146,9 @@ def main():
 
     for batch_size in BATCH_SIZES:
         eval_dataset = dataset_processed.select(range(batch_size // 2))
-        eval_dataset = concatenate_datasets([eval_dataset for _ in range(2 * NUM_BATCHES)])
+        eval_dataset = concatenate_datasets(
+            [eval_dataset for _ in range(2 * NUM_BATCHES)]
+        )
 
         eval_dataloader = eval_dataset.with_format("numpy").iter(batch_size=batch_size)
 

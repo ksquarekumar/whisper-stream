@@ -1,6 +1,25 @@
-# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
 #
-# SPDX-License-Identifier: Apache-2.0
+# # Copyright © 2023 krishnakumar <ksquarekumar@gmail.com>.
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License"). You
+# # may not use this file except in compliance with the License. A copy of
+# # the License is located at:
+# #
+# # https://github.com/ksquarekumar/whisper-stream/blob/main/LICENSE
+# #
+# # or in the "license" file accompanying this file. This file is
+# # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# # ANY KIND, either express or implied. See the License for the specific
+# # language governing permissions and limitations under the License.
+# #
+# # This file is part of the whisper-stream.
+# # see (https://github.com/ksquarekumar/whisper-stream)
+# #
+# # SPDX-License-Identifier: Apache-2.0
+# #
+# # You should have received a copy of the APACHE LICENSE, VERSION 2.0
+# # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
+#
 from functools import lru_cache
 import pathlib
 from typing import Literal
@@ -11,7 +30,7 @@ ParallelBackendTypes = Literal["loky", "threading", "multiprocessing"]
 
 @lru_cache(typed=True)  # type: ignore[misc]
 def get_backend(
-    backend: ParallelBackendTypes = "loky",
+    parallel_backend: ParallelBackendTypes = "loky",
     n_jobs: int | None = None,
     count_only_physical_cores: bool = True,
     batch_size: str | int = "auto",
@@ -23,18 +42,18 @@ def get_backend(
     """Helper function for `Joblib`'s readable parallel mapping.
 
     Args:
-        backend (ParallelBackendTypes):
-            Specify the parallelization backend implementation, defaults to `loky`
+        parallel_backend (ParallelBackendTypes):
+            Specify the parallelization parallel_backend implementation, defaults to `loky`
 
             Supported backends are:
             - "loky" used by default, can induce some
               communication and memory overhead when exchanging input and
               output data with the worker Python processes. On some rare
-              systems (such as Pyiodide), the loky backend may not be
+              systems (such as Pyiodide), the loky parallel_backend may not be
               available.
-            - "multiprocessing" previous process-based backend based on
+            - "multiprocessing" previous process-based parallel_backend based on
               `multiprocessing.Pool`. Less robust than `loky`.
-            - "threading" is a very low-overhead backend but it suffers
+            - "threading" is a very low-overhead parallel_backend but it suffers
               from the Python Global Interpreter Lock if the called function
               relies a lot on Python objects. "threading" is mostly useful
               when the execution bottleneck is a compiled extension that
@@ -62,14 +81,14 @@ def get_backend(
             batch to complete, and dynamically adjusts the batch size to keep
             the time on the order of half a second, using a heuristic. The
             initial batch size is 1.
-            ``batch_size="auto"`` with ``backend="threading"`` will dispatch
-            batches of a single task at a time as the threading backend has
+            ``batch_size="auto"`` with ``parallel_backend="threading"`` will dispatch
+            batches of a single task at a time as the threading parallel_backend has
             very little overhead and using larger batch size has not proved to
             bring any gain in that case.
         require (Literal[&quot;sharedmem&quot;, None], optional):
-            Hard constraint to select the backend, Defaults to None..
-            If set to 'sharedmem', the selected backend will be single-host
-            and thread-based even if the user asked for a non-thread based backend with
+            Hard constraint to select the parallel_backend, Defaults to None..
+            If set to 'sharedmem', the selected parallel_backend will be single-host
+            and thread-based even if the user asked for a non-thread based parallel_backend with
             :func:`~joblib.parallel_config`
         temp_folder (str | None, optional):
             Folder to be used by the pool for memmapping large arrays
@@ -96,7 +115,7 @@ def get_backend(
             triggers automated memory mapping in temp_folder, Defaults to None.
             Can be an int in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmapping of large arrays.
-            Only active when backend="loky" or "multiprocessing".
+            Only active when parallel_backend="loky" or "multiprocessing".
 
     Raises:
         err: _description_
@@ -106,7 +125,9 @@ def get_backend(
         Parallel: _description_
     """
 
-    _n_jobs: int = n_jobs if n_jobs is not None else (cpu_count(count_only_physical_cores) or -1)
+    _n_jobs: int = (
+        n_jobs if n_jobs is not None else (cpu_count(count_only_physical_cores) or -1)
+    )
 
     if temp_folder is not None:
         try:
@@ -115,10 +136,10 @@ def get_backend(
         except Exception as err:
             raise err
 
-    match backend:
+    match parallel_backend:
         case "threading":
             return Parallel(
-                backend=backend,
+                backend=parallel_backend,
                 n_jobs=_n_jobs,
                 batch_size=str(batch_size),
                 require=require,
@@ -127,7 +148,7 @@ def get_backend(
             )
         case "loky" | "multiprocessing":
             return Parallel(
-                backend=backend,
+                backend=parallel_backend,
                 n_jobs=_n_jobs,
                 batch_size=str(batch_size),
                 require=require,
@@ -135,10 +156,16 @@ def get_backend(
                 max_nbytes=max_nbytes,
             )
         case _:
-            error: str = (f"Backend: {backend} does not exist(!)",)  # type: ignore[unreachable]
+            error: str = (f"parallel_backend: {parallel_backend} does not exist(!)",)  # type: ignore[unreachable]
             raise ValueError(error)
 
 
 DEFAULT_PARALLEL_BACKEND: Parallel = get_backend("threading")
 
-__all__: list[str] = ["get_backend", "cpu_count", "delayed", "DEFAULT_PARALLEL_BACKEND"]
+__all__: list[str] = [
+    "get_backend",
+    "cpu_count",
+    "delayed",
+    "Parallel",
+    "DEFAULT_PARALLEL_BACKEND",
+]

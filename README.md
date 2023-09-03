@@ -1,112 +1,120 @@
-[![CodeQL](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql) [![Release](https://github.com/ksquarekumar/whisper-stream/actions/workflows/Release.yml/badge.svg)](https://github.com/ksquarekumar/whisper-stream/actions/workflows/Release.yml) ![Builds](https://codebuild.ap-south-1.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiS2FMcnRKSWhrNE0zYk0wR3dBRzlQSWVjQVBsbHhsYmwySWt6SG9zU1NRVWdrN1ZkTjJLNi83R1JPd3NWaDM5eU9sS0hVUUd4ODdUSGZ2Z3NCajZQbGNBPSIsIml2UGFyYW1ldGVyU3BlYyI6InFIYTNab2s1a3oxdWJVTnYiLCJtYXRlcmlhbFNldFNlcmlhbCI6Mn0%3D&branch=main)
+[![CodeQL](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql)
 
-# Whisper Stream
+# _Whisper-Stream_ 🌬️
 
-**Table of Contents**
+> This project aims to provide applications/pipelines and common code for performing _fast_ `automatic speech recognition`, `transcription` and `translation` using open-source models based on _[open-ai](https://openai.com/)'s_ [whisper](https://openai.com/research/whisper) project.
+
+_**Table of Contents**_
 
 - [Installation](#installation)
+- [Development](#development)
+- [Features](#features)
 - [License](#license)
 
-## Installation
+## _Installation_
 
-### From Git
+### _Consuming this project via `pip`_
 
-```console
-pip install "whisper-stream[data] @ git+https://github.com/ksquarekumar/whisper-stream.git@main"
+```shell
+pip install "whisper-stream[{feature},...] @ git+https://github.com/ksquarekumar/whisper-stream.git@main"
 ```
 
-### In Development Mode
+## _Development_
 
-- with `conda`
+> This project uses [pyenv](https://github.com/pyenv/pyenv), [mamba](https://github.com/mamba-org/mamba) and [`poetry`](https://python-poetry.org/) to manage environments, dependencies and building wheels.
+
+> For available extras/features refer to the `extras` section under `[tool.poetry.extras]` project [manifest](https://github.com/ksquarekumar/whisper-stream/blob/main/pyproject.toml)
+
+### _Step by Step installation._
+
+#### _1. Clone this repo._
+
+```
+git clone git+https://github.com/ksquarekumar/whisper-stream.git
+```
+
+##### _1.1. Install `pyenv`._
+
+```shell
+curl https://pyenv.run | bash
+```
+
+#### _2. Install a `mambaforge` environment with `pyenv`._
+
+```shell
+pyenv install mambaforge-22.9.0-3 && pyenv shell mambaforge-22.9.0-3 && mamba activate base
+mamba install conda-lock poetry
+mamba update --name base --update-all
+```
+
+##### _2.1. Optionally, set it as the default global interpreter in `pyenv`._
+
+```shell
+pyenv global mambaforge-22.9.0-3
+exec $(SHELL)
+```
+
+#### _3. Create a project environment **(named: `whisper_py311`)** from the existing [`conda.yml`](https://github.com/ksquarekumar/whisper-stream/blob/main/conda.yml) manifest._
+
+```shell
+mamba env create -f conda.yml && mamba activate whisper_py311
+```
+
+##### _3.1. Optionally, set it as the default local environment for this project._
+
+```shell
+pyenv local mambaforge-22.9.0-3/envs/whisper_py311
+exec $(SHELL)
+```
+
+#### _4. Install project dependencies in a project local virtual environment with `poetry`._
+
+```shell
+mamba activate whisper_py311
+pip install conda-lock poetry-conda
+poetry install -E "[list of features,..]"
+```
+
+- For `development` you probably want all of `"[dev,test]"` groups so `poetry install` is what you need
+
+- For `non-development` install you probably want to exclude `[dev,test]` groups, so install with:
+
+```shell
+poetry install --only main
+```
+
+#### _5. Optional, setup project local commit and git hooks_
+
+```shell
+pre-commit install --install-hooks
+```
+
+### _TL;DR Version for `CI` Builds_
+
+> assumes `source` is present in system
+
+- within the `system` python for containers
+
+```console
+pip install requirements.{feature}.txt
+pip install .["feature"]
+```
+
+- with `conda` as the system's environment manager
 
 ```console
 conda install mamba
-mamba env create -f conda.yml
-mamba activate whisper_py310
-pip install -e ."[data,benchmarks,dev,test]"
-pre-commit install --install-hooks
+mamba env update -f conda.yml
+pip install requirements.{feature}.txt
+pip install .["feature"]
 ```
 
-- with `pyenv+conda`
+### Features
 
-```console
-pyenv install mambaforge-22.9.0-3
-pyenv shell mambaforge-22.9.0-3 && pyenv local mambaforge-22.9.0-3
-mamba env create -f conda.yml
-mamba activate whisper_py310
-pip install -e ."[data,benchmarks,dev,test]"
-pre-commit install --install-hooks
-```
-
-## [Whisper-JAX](./WhisperJax.md)
-
-> `jax` modules partially vendored from [whisper-jax](https://github.com/sanchit-gandhi/whisper-jax)
-
-## Usage
-
-### `JAX` Pipelines [Link](./notebooks/usage.ipynb)
-
-- `quickstart`
-
-```python
-from whisper_stream import load_data_samples_from_path
-from whisper_stream.pipelines import (
-    JAXStreamablePipeline,
-    JAXValidDtypesMapping,
-    JAXScalarDType,
-    JAXCheckpoints,
-    JAXValidTasks,
-)
-from whisper_stream.logger import LOG_LEVEL_NAMES
-
-# set parameters
-checkpoint: JAXCheckpoints = "openai/whisper-tiny"
-model_dtype: JAXScalarDType = JAXValidDtypesMapping["BFLOAT16"]
-task: JAXValidTasks = "transcribe"
-language: str = "english"
-return_timestamps: bool = True
-batch_size: int = 32
-log_level: LOG_LEVEL_NAMES = "INFO"
-
-run_opts = {"batch_size": batch_size, "return_timestamps": return_timestamps, "language": language, "task": task}
-
-# construct
-pipeline = JAXStreamablePipeline(
-    checkpoint=checkpoint, dtype=model_dtype, batch_size=batch_size, min_log_level=log_level
-)
-
-# Load data
-pipeline_data: bytes = load_data_samples_from_path("audio_1.mp3", binary_mode=True)  #4s
-pipeline_data_large: bytes = load_data_samples_from_path("tryst.mp3", binary_mode=True) #4:44s
-
-# initialize & warmup
-pipeline.initialize_pipeline(**run_opts, use_experimental_cache=True)
-
-# small data, one at a time
-list(pipeline(pipeline_data, **run_opts))
-
-# small data in batch
-list(pipeline([pipeline_data] * 10, **run_opts))
-
-# larger, chunkable data
-%time list(pipeline(pipeline_data_large, **run_opts))
-
-# alrger, chunkable data in batches
-%time list(pipeline([pipeline_data_large] * 32, **run_opts))
-
-# make mixed mode data
-mixed_mode_data: list[bytes] = [pipeline_data_large, pipeline_data, pipeline_data, pipeline_data] * 4
-
-# test on mixed data, data isreceived as it comes
-# using default `smallest` strategy the smaller files will come in larger batches first
-start: float = time.time()
-for data in pipeline(mixed_mode_data, strategy="smallest", **run_opts):
-    print({"num_items": len(data)}, end="\n")
-    print({"data": data, "time_taken": f"{time.time() - start:.2}s"}, end="\n")
-    print("-" * 40, end="\n")
-    start = time.time()
-```
+#### [Service-Jax](./docs/ServiceJax.md)
 
 ## License
+
+> some `jax` modules are partially vendored from [whisper-jax](https://github.com/sanchit-gandhi/whisper-jax)
 
 `whisper-stream` is distributed under the terms of the [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license.

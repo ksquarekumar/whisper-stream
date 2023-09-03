@@ -23,7 +23,9 @@ def preprocess(batch):
 
 
 # load a dataset of 73 audio samples
-librispeech = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
+librispeech = load_dataset(
+    "hf-internal-testing/librispeech_asr_dummy", "clean", split="validation"
+)
 dataset_processed = librispeech.map(preprocess, remove_columns=librispeech.column_names)
 
 for batch_size in BATCH_SIZES:
@@ -31,13 +33,18 @@ for batch_size in BATCH_SIZES:
     eval_dataset = concatenate_datasets([eval_dataset for _ in range(2 * NUM_BATCHES)])
 
     dataloader = DataLoader(
-        dataset=eval_dataset.with_format("torch"), batch_size=batch_size, num_workers=4, pin_memory=True
+        dataset=eval_dataset.with_format("torch"),
+        batch_size=batch_size,
+        num_workers=4,
+        pin_memory=True,
     )
 
     # generate
     start = time.time()
     for batch in dataloader:
         input_features = batch["input_features"].to("cuda").half()
-        out = model.generate(input_features, max_new_tokens=NUM_TOKENS, min_new_tokens=NUM_TOKENS)
+        out = model.generate(
+            input_features, max_new_tokens=NUM_TOKENS, min_new_tokens=NUM_TOKENS
+        )
     runtime = time.time() - start
     print(f"{batch_size}: {runtime:.06}")
