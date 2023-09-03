@@ -2,3 +2,4 @@
 extend = "../pyproject.toml"
 ignore = ["E402", "T201", "F821", "N999", "D100", "F401", "INP001"]
 line-length = 120
+cache-dir = "../.ruff_cache"

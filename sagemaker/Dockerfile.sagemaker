@@ -12,6 +12,7 @@ FROM ${SOURCE_ACCOUNT_ID}.dkr.ecr.${SOURCE_REGION}.amazonaws.com/${SOURCE_IMAGE_
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_EXTRA_INDEX_URL='https://pypi.nvidia.com' \
+    XLA_PYTHON_CLIENT_PREALLOCATE="false" \
     XLA_PYTHON_CLIENT_MEM_FRACTION=".50" \
     OMP_NUM_THREADS=$(nproc)
 
@@ -63,7 +64,7 @@ RUN \
     # ML (NVIDIA)
     && pip install --no-cache-dir --upgrade nvidia-pyindex \
     && pip install --no-cache-dir --upgrade tensorrt==8.5.3.1 nvidia-pytriton>=0.2.4 "pyzmq~=23.0" "PyYAML<5.5,>=3.10" \
-    # ML Libs & Deps
+    # ML Libs & Deps [torch provides it's own cuda]
     flax "transformers[torch]>=4.27.4" faster-whisper cached-property accelerate>=0.20.3 numba orjson pathos dill joblib ctranslate2 \
     # AWS Stuff
     sagemaker-training multi-model-server \

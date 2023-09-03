@@ -1,6 +1,25 @@
-# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
 #
-# SPDX-License-Identifier: Apache-2.0
+# # Copyright © 2023 krishnakumar <ksquarekumar@gmail.com>.
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License"). You
+# # may not use this file except in compliance with the License. A copy of
+# # the License is located at:
+# #
+# # https://github.com/ksquarekumar/whisper-stream/blob/main/LICENSE
+# #
+# # or in the "license" file accompanying this file. This file is
+# # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# # ANY KIND, either express or implied. See the License for the specific
+# # language governing permissions and limitations under the License.
+# #
+# # This file is part of the whisper-stream.
+# # see (https://github.com/ksquarekumar/whisper-stream)
+# #
+# # SPDX-License-Identifier: Apache-2.0
+# #
+# # You should have received a copy of the APACHE LICENSE, VERSION 2.0
+# # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
+#
 from enum import IntEnum
 import os
 from platform import python_version, architecture
@@ -86,7 +105,9 @@ def _get_processors() -> list[structlog.types.Processor]:
             *shared_processors,
             structlog.processors.dict_tracebacks,
             structlog.processors.KeyValueRenderer(
-                key_order=["event", "time_taken"], drop_missing=True, repr_native_str=True
+                key_order=["event", "time_taken"],
+                drop_missing=True,
+                repr_native_str=True,
             ),
         ]
 
@@ -104,7 +125,9 @@ _LOGGERS: dict[str, BoundLogger] = {}
 
 
 def get_application_logger(
-    name: str, min_log_level: LOG_LEVEL_NAMES | None = "INFO", binds: dict[str, Any] | None = None
+    name: str,
+    min_log_level: LOG_LEVEL_NAMES | None = "INFO",
+    binds: dict[str, Any] | None = None,
 ) -> BoundLogger:
     # quicker fast path
     if name in _LOGGERS:

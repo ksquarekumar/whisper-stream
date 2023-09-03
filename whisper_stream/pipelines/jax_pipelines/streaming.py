@@ -1,20 +1,37 @@
-# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
 #
-# SPDX-License-Identifier: Apache-2.0
-from dataclasses import dataclass
-import math
+# # Copyright © 2023 krishnakumar <ksquarekumar@gmail.com>.
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License"). You
+# # may not use this file except in compliance with the License. A copy of
+# # the License is located at:
+# #
+# # https://github.com/ksquarekumar/whisper-stream/blob/main/LICENSE
+# #
+# # or in the "license" file accompanying this file. This file is
+# # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# # ANY KIND, either express or implied. See the License for the specific
+# # language governing permissions and limitations under the License.
+# #
+# # This file is part of the whisper-stream.
+# # see (https://github.com/ksquarekumar/whisper-stream)
+# #
+# # SPDX-License-Identifier: Apache-2.0
+# #
+# # You should have received a copy of the APACHE LICENSE, VERSION 2.0
+# # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
+#
 import time
-from typing import Any, Callable, Final, Generator, Literal, TypeAlias
+from typing import Any, Callable, Final, Generator, Literal
 
-import flax
 import jax
 import jax.numpy as jnp
 import numpy as np
 from flax import jax_utils
 from flax.core.frozen_dict import freeze
 from flax.training.common_utils import shard
-from jax._src.numpy.lax_numpy import _ScalarMeta
 from jax.experimental.compilation_cache import compilation_cache as cc
+
+from flax.core import FrozenDict
 
 from jax.sharding import PartitionSpec as P
 from jax._src.stages import Wrapped
@@ -25,83 +42,54 @@ from transformers.generation import FlaxBeamSearchOutput, FlaxGreedySearchOutput
 from transformers.generation.configuration_utils import GenerationConfig
 from transformers.feature_extraction_utils import BatchFeature
 from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
-from transformers.pipelines.audio_utils import ffmpeg_read
-from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
-from transformers.models.whisper.tokenization_whisper_fast import WhisperTokenizerFast
-from transformers.models.whisper.feature_extraction_whisper import WhisperFeatureExtractor
-
-from whisper_stream.constants import JAX_CACHE_PATH
-from whisper_stream.logger import LOG_LEVEL_NAMES, BoundLogger, get_application_logger
-from whisper_stream.utils.helpers import LanguageIDs, is_bytes, is_bytes_array
-from whisper_stream.utils.parallel import delayed, get_backend
-from whisper_stream.vendored.whisper_jax import FlaxWhisperForConditionalGeneration
-from whisper_stream.vendored.whisper_jax.modeling_flax_whisper import FlaxWhisperForConditionalGeneration
-from whisper_stream.vendored.whisper_jax.partitioner import PjitPartitioner, PjittedFnWithContext
-from whisper_stream.vendored.whisper_jax.train_state import InferenceState
-
-
-JAXCheckpoints = Literal[
-    "openai/whisper-tiny",
-    "openai/whisper-base",
-    "openai/whisper-small",
-    "openai/whisper-medium",
-    "openai/whisper-large",
-    "openai/whisper-large-v2",
-]
-
-FrozenDict = flax.core.FrozenDict
-
-JAXScalarDType: TypeAlias = _ScalarMeta
-
-JAXValidDtypesMapping: Final[dict[str, JAXScalarDType]] = {
-    "FLOAT32": jnp.float32,
-    "BFLOAT16": jnp.bfloat16,
-    "FLOAT16": jnp.float16,
-}
-JAXValidTasks = Literal["transcribe", "translate"]
-JAXTaskStrategy = Literal["smallest", "largest"]
-
-ND_ARRAY_FLOAT = np.ndarray[tuple[int, ...], np.dtype[np.floating[Any]]]
-ND_ARRAY_INT = np.ndarray[tuple[int, ...], np.dtype[np.integer[Any]]]
-
-VEC_FLOAT = np.ndarray[tuple[int], np.dtype[np.floating[Any]]]
-VEC_SIGNED_INT = np.ndarray[tuple[int], np.dtype[np.signedinteger[Any]]]
-
-AUDIO_FILES_DTYPE = np.ndarray[tuple[int, int], np.dtype[np.float32]]
-
-DECODER_ID_TYPE = list[tuple[int, str | Any]]
-
-JAXThreadParallel: Parallel = get_backend("threading")
-JAXMPParallel: Parallel = get_backend("loky")
-
-WhisperTokenizers: TypeAlias = WhisperTokenizerFast | WhisperTokenizer
-
-# 2D parameter and activation partitioning for DP
-SHARDING_RULESET_TYPE = tuple[tuple[str, str | None], ...]
-FLAX_DEFAULT_DP_LOGICAL_AXES: SHARDING_RULESET_TYPE = (
-    ("batch", "data"),
-    ("mlp", None),
-    ("heads", None),
-    ("vocab", None),
-    ("embed", None),
-    ("embed", None),
-    ("joined_kv", None),
-    ("kv", None),
-    ("length", None),
-    ("num_mel", None),
-    ("channels", None),
+from whisper_stream.core.constants import WhisperValidCheckpoints, WhisperValidTasks
+from whisper_stream.core.helpers.batching import (
+    BatchPreProcessorTasksMapping,
+    BatchedTaskProcessingStrategy,
+    iterate_batch_for_chunkable_audio,
+    pregenerate_batching_info_for_chunkable_audio,
+    preprocess_batch_adaptive,
+    split_array_on_primary_axis,
+)
+from whisper_stream.core.helpers.parsing import LanguageIDs, is_bytes, is_bytes_array
+from whisper_stream.core.helpers.parallel import Parallel, delayed
+from whisper_stream.core.helpers.preprocessing import (
+    DEFAULT_RESAMPLER_FN,
+    preprocess_inputs_with_ffmpeg,
+    resample_inputs_with_fn,
 )
 
-InputsGenerator = Generator[dict[str, list[Any] | ND_ARRAY_FLOAT | bool], Any, None]
+from whisper_stream.pipelines.jax_pipelines.constants import (
+    JAX_CACHE_PATH,
+    JAXScalarDType,
+    JAXThreadParallel,
+    JAXValidDtypesMapping,
+    WhisperFeatureExtractor,
+    JAXWhisperTokenizers,
+    JAXDecoderIDType,
+    JaxShardingRulesetType,
+    FLAX_DEFAULT_DP_LOGICAL_AXES,
+)
+from whisper_stream.core.logger import (
+    LOG_LEVEL_NAMES,
+    BoundLogger,
+    get_application_logger,
+)
+from whisper_stream.typings import (
+    AudioFilesDType,
+    ChunkedInputsGenerator,
+    NDArrayFloat,
+    TasksCallableMapping,
+)
+from whisper_stream.vendored.whisper_jax import (
+    FlaxWhisperForConditionalGeneration,
+    PjitPartitioner,
+    PjittedFnWithContext,
+    InferenceState,
+)
 
 
-@dataclass(frozen=True)
-class JaxBatchedTasks:
-    task_callable: Callable[..., InputsGenerator]
-    task_kwargs: dict[str, Any]
-
-
-class JAXStreamablePipeline:
+class JAXStreamingPipeline:
     num_devices: int
     device_type: Literal["GPU", "CPU"]
     device_class: list[str]
@@ -112,7 +100,7 @@ class JAXStreamablePipeline:
 
     def __init__(
         self,
-        checkpoint: JAXCheckpoints = "openai/whisper-small",
+        checkpoint: WhisperValidCheckpoints = "openai/whisper-small",
         dtype: JAXScalarDType = JAXValidDtypesMapping["BFLOAT16"],
         batch_size: int | None = None,
         max_length: int | None = None,
@@ -120,7 +108,7 @@ class JAXStreamablePipeline:
     ) -> None:
         """
         Args:
-            checkpoint (JAXCheckpoints, optional):
+            checkpoint (WhisperValidCheckpoints, optional):
                 The Whisper checkpoint to use in the pipeline, Defaults to "openai/whisper-small".
                 Must be an available checkpoint on the Hugging Face Hubwith Flax weights.
             dtype (JAXScalarDType, optional):
@@ -134,16 +122,22 @@ class JAXStreamablePipeline:
                 The maximum numbers of tokens to generate. Defaults to `model.config.max_length`.
         """
         self._get_devices()
-        self.checkpoint: Final[JAXCheckpoints] = checkpoint
+        self.checkpoint: Final[WhisperValidCheckpoints] = checkpoint
         self.dtype: JAXScalarDType = dtype
-        self.logger: Final[BoundLogger] = get_application_logger(name="pipeline", min_log_level=min_log_level)
+        self.logger: Final[BoundLogger] = get_application_logger(
+            name="pipeline", min_log_level=min_log_level
+        )
 
         self.initialized: bool = False
         self.is_sharded: bool = False
 
-        self.processor: WhisperProcessor = WhisperProcessor.from_pretrained(self.checkpoint)
-        self.feature_extractor: WhisperFeatureExtractor = self.processor.feature_extractor
-        self.tokenizer: WhisperTokenizers = self.processor.tokenizer
+        self.processor: WhisperProcessor = WhisperProcessor.from_pretrained(
+            self.checkpoint
+        )
+        self.feature_extractor: WhisperFeatureExtractor = (
+            self.processor.feature_extractor
+        )
+        self.tokenizer: JAXWhisperTokenizers = self.processor.tokenizer
 
         self.model, self.params = FlaxWhisperForConditionalGeneration.from_pretrained(
             self.checkpoint,
@@ -151,30 +145,42 @@ class JAXStreamablePipeline:
             dtype=self.dtype,
         )
 
-        self.max_length: int = max_length if max_length is not None else self.model.generation_config.max_length
+        self.max_length: int = (
+            max_length
+            if max_length is not None
+            else self.model.generation_config.max_length
+        )
         self.model_outputs: list[dict[str, Any]] = []
-        self.batch_size = batch_size if batch_size is not None else self.min_batch_size  # atleast 1 batch per device
+        self.batch_size = (
+            batch_size if batch_size is not None else self.min_batch_size
+        )  # atleast 1 batch per device
 
         def generate(
             params: dict[Any, Any],
-            input_features: ND_ARRAY_FLOAT,
-            forced_decoder_ids: DECODER_ID_TYPE,
+            input_features: NDArrayFloat,
+            forced_decoder_ids: JAXDecoderIDType,
             return_timestamps: bool,
         ) -> FlaxBeamSearchOutput | FlaxGreedySearchOutput:
-            output_ids: FlaxBeamSearchOutput | FlaxGreedySearchOutput = self.model.pipeline_generate(
-                input_features,
-                params=params,
-                forced_decoder_ids=forced_decoder_ids,
-                return_timestamps=return_timestamps,
-                max_length=self.max_length,
-            )  # type: ignore[no-untyped-call]
+            output_ids: FlaxBeamSearchOutput | FlaxGreedySearchOutput = (
+                self.model.pipeline_generate(  # type: ignore[no-untyped-call]
+                    input_features,
+                    params=params,
+                    forced_decoder_ids=forced_decoder_ids,
+                    return_timestamps=return_timestamps,
+                    max_length=self.max_length,
+                )
+            )
             return output_ids
 
         # use pmap for DP by default if we are not on CPU
         if self.device_type != "CPU":
             self.params = jax_utils.replicate(self.params)  # type: ignore[no-untyped-call]
             self.p_generate = jax.pmap(
-                generate, "input_features", in_axes=(0, 0, None), out_axes=0, static_broadcasted_argnums=(3,)
+                generate,
+                "input_features",
+                in_axes=(0, 0, None),
+                out_axes=0,
+                static_broadcasted_argnums=(3,),
             )
         else:
             self.p_generate = jax.jit(generate)
@@ -204,13 +210,15 @@ class JAXStreamablePipeline:
     def validate_data(data: list[bytes] | bytes | Any) -> list[bytes] | bytes:  # type: ignore[misc]
         if is_bytes_array(data) or is_bytes(data):
             return data
-        message: str = f"data must be of type bytes or list[bytes], received {type(data)}"
+        message: str = (
+            f"data must be of type bytes or list[bytes], received {type(data)}"
+        )
         raise ValueError(message)
 
     def shard_params(
         self,
         num_mp_partitions: int = 1,
-        logical_axis_rules: SHARDING_RULESET_TYPE = FLAX_DEFAULT_DP_LOGICAL_AXES,
+        logical_axis_rules: JaxShardingRulesetType = FLAX_DEFAULT_DP_LOGICAL_AXES,
     ) -> None:
         # do not run on CPU
         if self.device_type == "CPU":
@@ -223,13 +231,17 @@ class JAXStreamablePipeline:
             input_shape = (1, 80, 3000)
 
             input_features = jnp.zeros(input_shape, dtype="f4")
-            input_features = input_features.at[(..., -1)].set(self.model.config.eos_token_id)
+            input_features = input_features.at[(..., -1)].set(
+                self.model.config.eos_token_id
+            )
 
             decoder_input_ids = jnp.zeros((input_shape[0], 1), dtype="i4")
             decoder_attention_mask = jnp.ones_like(decoder_input_ids)
 
             batch_size, sequence_length = decoder_input_ids.shape
-            decoder_position_ids = jnp.broadcast_to(jnp.arange(sequence_length)[None, :], (batch_size, sequence_length))
+            decoder_position_ids = jnp.broadcast_to(
+                jnp.arange(sequence_length)[None, :], (batch_size, sequence_length)
+            )
 
             rng = jax.random.PRNGKey(0)
             init_params: FrozenDict[Any, Any] = self.model.module.init(
@@ -254,12 +266,16 @@ class JAXStreamablePipeline:
             flax_mutables_axes=param_axes,
         )
 
-        partitioner = PjitPartitioner(num_partitions=num_mp_partitions, logical_axis_rules=logical_axis_rules)
+        partitioner = PjitPartitioner(
+            num_partitions=num_mp_partitions, logical_axis_rules=logical_axis_rules
+        )
 
         mesh_axes = partitioner.get_mesh_axes(state)
         params_spec = mesh_axes.params
 
-        p_shard_params: PjittedFnWithContext = partitioner.partition(self.model.to_bf16, (params_spec,), params_spec)
+        p_shard_params: PjittedFnWithContext = partitioner.partition(
+            self.model.to_bf16, (params_spec,), params_spec
+        )
 
         # This will auto-magically run in mesh context
         self.params = p_shard_params(freeze(jax_utils.unreplicate(self.params)))  # type: ignore[no-untyped-call]
@@ -267,17 +283,19 @@ class JAXStreamablePipeline:
 
         def generate(
             params: dict[Any, Any],
-            input_features: ND_ARRAY_FLOAT,
-            forced_decoder_ids: DECODER_ID_TYPE,
+            input_features: NDArrayFloat,
+            forced_decoder_ids: JAXDecoderIDType,
             return_timestamps: bool,
         ) -> FlaxBeamSearchOutput | FlaxGreedySearchOutput:
-            output_ids: FlaxBeamSearchOutput | FlaxGreedySearchOutput = self.model.pipeline_generate(
-                input_features,
-                params=params,
-                forced_decoder_ids=forced_decoder_ids,
-                return_timestamps=return_timestamps,
-                max_length=self.max_length,
-            )  # type: ignore[no-untyped-call]
+            output_ids: FlaxBeamSearchOutput | FlaxGreedySearchOutput = (
+                self.model.pipeline_generate(  # type: ignore[no-untyped-call]
+                    input_features,
+                    params=params,
+                    forced_decoder_ids=forced_decoder_ids,
+                    return_timestamps=return_timestamps,
+                    max_length=self.max_length,
+                )
+            )
             return output_ids
 
         # Use pjit for generate only once we've sharded the params
@@ -290,9 +308,9 @@ class JAXStreamablePipeline:
 
     def generate(
         self,
-        input_features: ND_ARRAY_FLOAT,
+        input_features: NDArrayFloat,
         language: str | None = None,
-        task: JAXValidTasks | None = None,
+        task: WhisperValidTasks | None = None,
         return_timestamps: bool = False,
     ) -> FlaxBeamSearchOutput | FlaxGreedySearchOutput:
         forced_decoder_ids = self.get_forced_decoder_ids(
@@ -307,19 +325,24 @@ class JAXStreamablePipeline:
         else:
             # pjit handles replication / gathering for us auto-magically
             output_ids = self.p_generate(
-                freeze(self.params), input_features, forced_decoder_ids, return_timestamps
+                freeze(self.params),
+                input_features,
+                forced_decoder_ids,
+                return_timestamps,
             ).sequences
         return output_ids
 
     def get_forced_decoder_ids(
         self,
         generation_config: GenerationConfig | None = None,
-        task: JAXValidTasks | None = None,
+        task: WhisperValidTasks | None = None,
         language: str | LanguageIDs | None = None,
         return_timestamps: bool = False,
-    ) -> DECODER_ID_TYPE:
+    ) -> JAXDecoderIDType:
         _generation_config: GenerationConfig = (
-            self.model.generation_config if generation_config is None else generation_config
+            self.model.generation_config
+            if generation_config is None
+            else generation_config
         )
 
         if hasattr(_generation_config, "is_multilingual"):
@@ -327,7 +350,7 @@ class JAXStreamablePipeline:
         else:
             is_multilingual = None
 
-        forced_decoder_ids: DECODER_ID_TYPE = []
+        forced_decoder_ids: JAXDecoderIDType = []
 
         if is_multilingual:
             if language is not None:
@@ -341,172 +364,129 @@ class JAXStreamablePipeline:
                 else:
                     if len(language) == 2:
                         # ISO 639-1 language code
-                        acceptable_languages: list[str] = list(TO_LANGUAGE_CODE.values())
+                        acceptable_languages: list[str] = list(
+                            TO_LANGUAGE_CODE.values()
+                        )
                     elif "<" in language or "|" in language or ">" in language:
                         # generation config language code
-                        acceptable_languages = list(_generation_config.lang_to_id.keys())
+                        acceptable_languages = list(
+                            _generation_config.lang_to_id.keys()
+                        )
                     else:
                         # language passed as a string
                         acceptable_languages = list(TO_LANGUAGE_CODE.keys())
                     msg = f"Unsupported language: {language}. Language should be one of: {acceptable_languages}."
                     raise ValueError(msg)
-                forced_decoder_ids.append((1, _generation_config.lang_to_id[language_token]))
+                forced_decoder_ids.append(
+                    (1, _generation_config.lang_to_id[language_token])
+                )
 
             if task is not None:
                 forced_decoder_ids.append((2, _generation_config.task_to_id[task]))
             else:
-                forced_decoder_ids.append((2, _generation_config.task_to_id["transcribe"]))
+                forced_decoder_ids.append(
+                    (2, _generation_config.task_to_id["transcribe"])
+                )
 
         if not return_timestamps:
-            if forced_decoder_ids and forced_decoder_ids[-1][0] != _generation_config.no_timestamps_token_id:
+            if (
+                forced_decoder_ids
+                and forced_decoder_ids[-1][0]
+                != _generation_config.no_timestamps_token_id
+            ):
                 idx = forced_decoder_ids[-1][0] + 1 if forced_decoder_ids else 1
-                forced_decoder_ids.append((idx, _generation_config.no_timestamps_token_id))
+                forced_decoder_ids.append(
+                    (idx, _generation_config.no_timestamps_token_id)
+                )
 
         return forced_decoder_ids
 
     def _iterate_batch_for_chunkable(
-        self, inputs: VEC_FLOAT, chunk_len: int, stride_left: int, stride_right: int, batch_size: int
-    ) -> InputsGenerator:
-        inputs_len: int = inputs.shape[0]  # Size of 1-D input / length of 1-channel audio array
-        step: int = chunk_len - stride_left - stride_right
-
-        all_chunks_start_idx: VEC_SIGNED_INT = np.arange(0, inputs_len, step)
-        num_samples: int = len(all_chunks_start_idx)
-
-        num_batches: int = math.ceil(num_samples / batch_size)
-        batch_idx: list[VEC_SIGNED_INT] = np.array_split(np.arange(num_samples), num_batches)
-
-        self.logger.debug(
-            "feature_extractor(iterate_batch_for_chunkable):gather",
-            shape=inputs.shape[0],
-            num_batches=num_batches,
-            chunk_len=chunk_len,
-            stride_left=stride_left,
-            stride_right=stride_right,
-            batch_size=batch_size,
-        )
-
-        for batch_counter, batch_segments in enumerate(batch_idx):
-            start: float = time.time()
-            chunk_start_idx: VEC_SIGNED_INT = all_chunks_start_idx[batch_segments]
-
-            chunk_end_idx: VEC_SIGNED_INT = chunk_start_idx + chunk_len
-
-            chunks: list[VEC_FLOAT] = [
-                inputs[chunk_start:chunk_end] for chunk_start, chunk_end in zip(chunk_start_idx, chunk_end_idx)
-            ]
+        self,
+        inputs: AudioFilesDType,
+        chunk_len: int,
+        stride_left: int,
+        stride_right: int,
+        batch_size: int,
+        do_normalize: bool = True,
+    ) -> ChunkedInputsGenerator:
+        for batch_counter, iteration_input in enumerate(
+            iterate_batch_for_chunkable_audio(
+                inputs=inputs,
+                chunk_len=chunk_len,
+                stride_left=stride_left,
+                stride_right=stride_right,
+                batch_size=batch_size,
+                logger=self.logger,
+            )
+        ):
             processed: BatchFeature = self.feature_extractor(
-                chunks, sampling_rate=self.feature_extractor.sampling_rate, return_tensors="np"
+                raw_speech=iteration_input.get("chunks"),
+                sampling_rate=self.feature_extractor.sampling_rate,
+                return_tensors="np",
+                do_normalize=do_normalize,
             )
 
-            _stride_left: VEC_SIGNED_INT = np.where(chunk_start_idx == 0, 0, stride_left)
-            is_last: VEC_SIGNED_INT = np.where(
-                stride_right > 0, chunk_end_idx > inputs_len, chunk_end_idx >= inputs_len
-            )
-            _stride_right: VEC_SIGNED_INT = np.where(is_last, 0, stride_right)
-
-            chunk_lens: list[int] = [chunk.shape[0] for chunk in chunks]
-            strides: list[tuple[int, int, int]] = [
-                (chunk_l, _stride_l, _stride_r)
-                for chunk_l, _stride_l, _stride_r in zip(chunk_lens, _stride_left, _stride_right)
-            ]
-
-            iteration_input = {"stride": strides, **processed}
-
-            if batch_counter + 1 == len(batch_idx):
-                iteration_input = {"terminal": True, "stride": strides, **processed}
+            iteration_input_processed = {
+                "terminal": iteration_input["terminal"],
+                "strides": iteration_input["strides"],
+                **processed,
+            }
 
             self.logger.debug(
                 "feature_extractor(iterate_batch_for_chunkable):dispatch",
-                num_chunks=len(chunk_lens),
-                batch_count=f"#:{batch_counter}/{num_batches}",
-                time_taken=f"{time.time()-start:.2}s",
-                stride_left=stride_left,
-                strides=strides,
+                batch_counter=batch_counter,
                 shape=processed["input_features"].shape,
-                keys=iteration_input.keys(),
+                keys=iteration_input_processed.keys(),
             )
 
-            yield iteration_input
+            yield iteration_input_processed
 
-    def _preprocess_batches_for_chunkable(
+    def _generate_batching_info_for_chunkable(
         self,
-        inputs: AUDIO_FILES_DTYPE,
+        inputs: AudioFilesDType,
         chunk_length_s: float,
         stride_length_s: float | None,
         batch_size: int,
         target_sampling_rate: int,
         ratio: float,
-    ) -> InputsGenerator:
-        chunkable_inputs = inputs
-        for idx, _input in enumerate(chunkable_inputs):
-            if len(_input.shape) != 1:
-                msg = "We expect a single channel audio input for AutomaticSpeechRecognitionPipeline"
-                raise ValueError(msg)
-
-            if chunk_length_s and _input.shape[0] / target_sampling_rate > chunk_length_s:
-                # We need to chunk, as input is larger than chunk_length_s
-                if stride_length_s is None:
-                    stride_length_s = float(chunk_length_s / 6)
-
-                stride_length_pairs: list[float] = [
-                    int(round(stride_length_s * ratio)),
-                    int(round(stride_length_s * ratio)),
-                ]
-
-                if stride_length_pairs[0] + stride_length_pairs[1] > _input.shape[0]:
-                    msg = f"Stride is too large for input {idx}"
-                    raise ValueError(msg)
-
-                chunk_len: int = round(chunk_length_s * target_sampling_rate)
-                stride_left: int = round(stride_length_pairs[0] * target_sampling_rate)
-                stride_right: int = round(stride_length_pairs[1] * target_sampling_rate)
-
-                if chunk_len < stride_left + stride_right:
-                    msg = "Chunk length must be superior to stride length"
-                    raise ValueError(msg)
-
-                self.logger.debug(
-                    "feature_extractor(preprocess_batches_for_chunkable):dispatch",
-                    batch=f"#{idx}/{len(chunkable_inputs)}",
-                    chunk_len=chunk_len,
-                    stride_left=stride_left,
-                    stride_right=stride_right,
-                    batch_size=batch_size,
-                    ratio=ratio,
-                )
-
-                yield from self._iterate_batch_for_chunkable(
-                    _input,
-                    chunk_len,
-                    stride_left,
-                    stride_right,
-                    batch_size,
-                )
-
-    def _split_array_on_primary_axis(self, arr: np.ndarray[Any, Any], batch_size: int) -> list[np.ndarray[Any, Any]]:
-        num_batches: int = math.ceil(len(arr) / batch_size)
-        batch_length: int = len(arr) // num_batches
-        splits: list[np.ndarray[Any, Any]] = []
-        for i in range(0, num_batches, batch_length):
-            splits.append(np.array([*arr[i : i + batch_length]]))
-        self.logger.debug(
-            "feature_extractor(preprocess_batches_for_unchunkable):split_array_on_primary_axis",
-            unchunkable_inputs=[subarr.shape for subarr in arr],
+        do_normalize: bool = True,
+    ) -> ChunkedInputsGenerator:
+        for batch_input in pregenerate_batching_info_for_chunkable_audio(
+            chunkable_inputs=inputs,
+            chunk_length_s=chunk_length_s,
+            stride_length_s=stride_length_s,
             batch_size=batch_size,
-            splits=[split.shape for split in splits],
-        )
-        return splits
+            target_sampling_rate=target_sampling_rate,
+            ratio=ratio,
+            logger=self.logger,
+        ):
+            _inputs, _chunk_len, _stride_left, _stride_right, _batch_size = batch_input
+
+            yield from self._iterate_batch_for_chunkable(
+                inputs=_inputs,
+                chunk_len=_chunk_len,
+                stride_left=_stride_left,
+                stride_right=_stride_right,
+                batch_size=_batch_size,
+                do_normalize=do_normalize,
+            )
 
     def _preprocess_batches_for_unchunkable(
-        self, inputs: AUDIO_FILES_DTYPE, batch_size: int, target_sampling_rate: int
-    ) -> InputsGenerator:
+        self,
+        inputs: AudioFilesDType,
+        batch_size: int,
+        target_sampling_rate: int,
+        do_normalize: bool = True,
+    ) -> ChunkedInputsGenerator:
         unchunkable_inputs = inputs
-        batches = self._split_array_on_primary_axis(unchunkable_inputs, batch_size)
+        batches = split_array_on_primary_axis(unchunkable_inputs, batch_size)
 
         self.logger.debug(
             "feature_extractor(preprocess_batches_for_unchunkable):gather",
-            unchunkable_inputs=[unchunkable_input.shape for unchunkable_input in unchunkable_inputs],
+            unchunkable_inputs=[
+                unchunkable_input.shape for unchunkable_input in unchunkable_inputs
+            ],
             num_files=len(unchunkable_inputs),
             batch_size=batch_size,
             num_batches=len(batches),
@@ -517,7 +497,10 @@ class JAXStreamablePipeline:
         for idx, _batched_input in enumerate(batches):
             start: float = time.time()
             processed: BatchFeature = self.feature_extractor(
-                _batched_input, sampling_rate=target_sampling_rate, return_tensors="np"
+                raw_speech=_batched_input,
+                sampling_rate=target_sampling_rate,
+                return_tensors="np",
+                do_normalize=do_normalize,
             )
             processed = {"fused_inputs": True, **processed}
             self.logger.debug(
@@ -537,90 +520,43 @@ class JAXStreamablePipeline:
         stride_length_s: float | None = None,
         batch_size: int | None = None,
         sampling_rate: int = 16000,
-        strategy: JAXTaskStrategy = "smallest",
-        backend: Parallel = JAXThreadParallel,
-    ) -> InputsGenerator:
+        strategy: BatchedTaskProcessingStrategy = "smallest",
+        do_normalize: bool = True,
+        parallel_backend: Parallel = JAXThreadParallel,
+    ) -> ChunkedInputsGenerator:
         # runtime
         self.validate_data(inputs)
 
         _batch_size: int = batch_size if batch_size is not None else self.batch_size
 
-        _inputs, _converted_sampling_rate = self.preprocess_input_ffmpeg(
-            data=[inputs] if isinstance(inputs, bytes) else inputs, sampling_rate=sampling_rate, backend=backend
-        )
-
-        target_sampling_rate: int = self.feature_extractor.sampling_rate
-
-        if _converted_sampling_rate != target_sampling_rate:
-            try:
-                import librosa
-            except ImportError as err:
-                msg: str = "To support resampling audio files, please install 'librosa' and 'soundfile'."
-                raise ImportError(msg) from err
-            _inputs, ratio = self.resample_input_with_fn(
-                data=_inputs,
-                resampler_fn=librosa.resample,
-                in_sampling_rate=_converted_sampling_rate,
-                out_sampling_rate=target_sampling_rate,
-            )
-        else:
-            ratio = 1.0
-
-        asc_sorted_vector_lengths = np.array([len(vec) for vec in _inputs])
-        asc_sorted_inputs_indices = np.argsort(asc_sorted_vector_lengths)
-        asc_sorted_inputs = _inputs[asc_sorted_inputs_indices]
-
-        asc_sorted_split_at_index: int = int(
-            np.searchsorted(
-                asc_sorted_vector_lengths[asc_sorted_inputs_indices],
-                int(chunk_length_s * target_sampling_rate),
-                side="right",
-            )
-        )
-
-        unchunkable_inputs: AUDIO_FILES_DTYPE = asc_sorted_inputs[:asc_sorted_split_at_index]
-        chunkable_inputs: AUDIO_FILES_DTYPE = asc_sorted_inputs[asc_sorted_split_at_index:]
-
-        self.logger.debug(
-            "feature_extractor(prepocess_batch)",
-            inputs_shapes=[inputs.shape for inputs in _inputs],
-            unchunkable_inputs=[unchunkable_input.shape for unchunkable_input in unchunkable_inputs],
-            chunkable_inputs=[chunkable_input.shape for chunkable_input in chunkable_inputs],
-            target_sampling_rate=target_sampling_rate,
-            ratio=ratio,
-        )
-
-        tasks_map: dict[JAXTaskStrategy, JaxBatchedTasks] = {
-            "smallest": JaxBatchedTasks(
+        tasks_callable_partial_mapping: TasksCallableMapping = {
+            "smallest": BatchPreProcessorTasksMapping(
                 task_callable=self._preprocess_batches_for_unchunkable,
-                task_kwargs={
-                    "inputs": unchunkable_inputs,
-                    "batch_size": _batch_size,
-                    "target_sampling_rate": target_sampling_rate,
-                },
+                task_kwargs={"do_normalize": do_normalize},
             ),
-            "largest": JaxBatchedTasks(
-                task_callable=self._preprocess_batches_for_chunkable,
-                task_kwargs={
-                    "inputs": chunkable_inputs,
-                    "chunk_length_s": chunk_length_s,
-                    "stride_length_s": stride_length_s,
-                    "batch_size": _batch_size,
-                    "target_sampling_rate": target_sampling_rate,
-                    "ratio": ratio,
-                },
+            "largest": BatchPreProcessorTasksMapping(
+                task_callable=self._generate_batching_info_for_chunkable,
+                task_kwargs={"do_normalize": do_normalize},
             ),
         }
 
-        task_order: list[JAXTaskStrategy] = (
-            ["smallest", "largest"] if strategy == "smallest" else ["largest", "smallest"]
-        )
+        target_sampling_rate: int = self.feature_extractor.sampling_rate
 
-        for task in task_order:
-            if len(tasks_map[task].task_kwargs["inputs"]) > 0:
-                task_callable = tasks_map[task].task_callable
-                task_kwargs = tasks_map[task].task_kwargs
-                yield from task_callable(**task_kwargs)
+        yield from preprocess_batch_adaptive(
+            inputs=inputs,
+            batch_size=_batch_size,
+            tasks_callable_partial_mapping=tasks_callable_partial_mapping,
+            chunk_length_s=chunk_length_s,
+            stride_length_s=stride_length_s,
+            audio_sampling_rate=sampling_rate,
+            target_sampling_rate=target_sampling_rate,
+            strategy=strategy,
+            audio_preprocessor=self.preprocess_inputs_with_ffmpeg,
+            fallback_resampler=self.resample_inputs_with_fn,
+            fallback_resampler_backend=DEFAULT_RESAMPLER_FN,
+            parallel_backend=parallel_backend,
+            logger=self.logger,
+        )
 
     def postprocess(
         self,
@@ -628,14 +564,18 @@ class JAXStreamablePipeline:
         return_timestamps: bool | None = None,
         return_language: str | None = None,
         fused_outputs: bool = False,
-        optional_backend: Parallel = JAXThreadParallel,
+        parallel_backend: Parallel = JAXThreadParallel,
     ) -> list[dict[str, Any]]:
         # unpack the outputs from list(dict(list)) to list(dict)
         _model_outputs: list[dict[Any, Any]] = [
-            dict(zip(output, t)) for output in model_outputs for t in zip(*output.values())
+            dict(zip(output, t))
+            for output in model_outputs
+            for t in zip(*output.values())
         ]
 
-        time_precision: float = self.feature_extractor.chunk_length / self.model.config.max_source_positions
+        time_precision: float = (
+            self.feature_extractor.chunk_length / self.model.config.max_source_positions
+        )
         # Send the chunking back to seconds, it's easier to handle in whisper
         sampling_rate: int = self.feature_extractor.sampling_rate
 
@@ -651,7 +591,7 @@ class JAXStreamablePipeline:
         )
         if fused_outputs == True:
             results: list[tuple[str, dict[Any, Any]]] = list(
-                optional_backend(
+                parallel_backend(
                     delayed(self.tokenizer._decode_asr)(
                         [_model_output],
                         return_timestamps=return_timestamps,
@@ -685,7 +625,7 @@ class JAXStreamablePipeline:
         model_inputs: dict[Any, Any],
         batch_size: int | None = None,
         language: str | None = None,
-        task: JAXValidTasks | None = None,
+        task: WhisperValidTasks | None = None,
         return_timestamps: bool = False,
     ) -> dict[str, Any]:
         # We need to keep track of some additional input arguments for post-processing so need to forward these on after running generation
@@ -693,12 +633,18 @@ class JAXStreamablePipeline:
         input_batch_size = input_features.shape[0]
 
         if input_batch_size != batch_size:
-            padding = np.zeros([batch_size - input_batch_size, *input_features.shape[1:]], input_features.dtype)
+            padding = np.zeros(
+                [batch_size - input_batch_size, *input_features.shape[1:]],
+                input_features.dtype,
+            )
             input_features = np.concatenate([input_features, padding])
 
-        pred_ids = self.generate(input_features, language=language, task=task, return_timestamps=return_timestamps)[
-            :input_batch_size
-        ]
+        pred_ids = self.generate(
+            input_features,
+            language=language,
+            task=task,
+            return_timestamps=return_timestamps,
+        )[:input_batch_size]
 
         # tokenizer's decode method expects an extra dim - we insert it here for convenience
         out = {"tokens": pred_ids[:, None, :]}
@@ -716,9 +662,10 @@ class JAXStreamablePipeline:
         stride_length_s: float | None = None,
         batch_size: int | None = None,
         language: str | None = None,
-        task: JAXValidTasks = "transcribe",
+        task: WhisperValidTasks = "transcribe",
         return_timestamps: bool = False,
-        strategy: JAXTaskStrategy = "smallest",
+        do_normalize: bool = True,
+        strategy: BatchedTaskProcessingStrategy = "smallest",
     ) -> Generator[dict[str, Any] | list[dict[str, Any]], Any, None]:
         """
         Transcribe an audio input sequence to a text transcription, optionally with timestamps.
@@ -755,7 +702,10 @@ class JAXStreamablePipeline:
                 Whether to return timestamps in the prediction. Defaults to False. If set to true, the pipeline
                 will return two keys in the output dictionary: `"text"` containing the text transcription, and `"chunks"`
                 containing the transcription segments chunked by their utterance-level timestamps.
-            strategy(JAXTaskStrategy):
+            do_normalize (`bool`, *optional*, defaults to `False`):
+                Whether or not to zero-mean unit-variance normalize the input. Normalizing can help to significantly
+                improve the performance of the model.
+            strategy(BatchedTaskProcessingStrategy):
                 strategy parameter to control whether to process the smallest/largest outputs first, Defaults to "smallest",
 
         Yields:
@@ -781,15 +731,22 @@ class JAXStreamablePipeline:
             stride_length_s=stride_length_s,
             batch_size=batch_size,
             strategy=strategy,
+            do_normalize=do_normalize,
         )
         # iterate over our chunked audio samples
         for batch in dataloader:
             output: dict[str, Any] = self.forward(
-                batch, batch_size=batch_size, language=language, task=task, return_timestamps=return_timestamps
+                {**batch},
+                batch_size=batch_size,
+                language=language,
+                task=task,
+                return_timestamps=return_timestamps,
             )
             if batch.get("fused_inputs") is True:
                 post_processed_fused: list[dict[str, Any]] = self.postprocess(
-                    model_outputs=[output], return_timestamps=return_timestamps, fused_outputs=True
+                    model_outputs=[output],
+                    return_timestamps=return_timestamps,
+                    fused_outputs=True,
                 )
                 yield post_processed_fused
             if batch.get("terminal") is None:
@@ -798,7 +755,8 @@ class JAXStreamablePipeline:
             if batch.get("terminal") == True:
                 self.model_outputs.append(output)
                 post_processed: list[dict[str, Any]] = self.postprocess(
-                    model_outputs=self.model_outputs, return_timestamps=return_timestamps
+                    model_outputs=self.model_outputs,
+                    return_timestamps=return_timestamps,
                 )
                 self.model_outputs = []
                 yield post_processed
@@ -807,13 +765,13 @@ class JAXStreamablePipeline:
         self,
         batch_size: int | None = None,
         language: str = "english",
-        task: JAXValidTasks = "transcribe",
+        task: WhisperValidTasks = "transcribe",
         return_timestamps: bool = False,
-        shard_with: SHARDING_RULESET_TYPE | Literal[True] | None = None,
+        shard_with: JaxShardingRulesetType | Literal[True] | None = None,
         use_experimental_cache: bool = True,
     ) -> None:
         """instantiate and return the Pipeline with internal batching, meant for large files that can be chunked internally.
-        sets `~JAXStreamablePipeline.model` after initialising it.
+        sets `~JAXStreamingPipeline.model` after initialising it.
 
         Args:
             batch_size (`int`, *optional*, defaults to the minimum per-device batch size, i.e. `jax.local_device_count()`):
@@ -848,7 +806,9 @@ class JAXStreamablePipeline:
         _shard_with = FLAX_DEFAULT_DP_LOGICAL_AXES if shard_with == True else shard_with
 
         if _shard_with is not None and self.device_type != "CPU":
-            self.shard_params(num_mp_partitions=self.num_devices, logical_axis_rules=_shard_with)
+            self.shard_params(
+                num_mp_partitions=self.num_devices, logical_axis_rules=_shard_with
+            )
 
         _: dict[str, Any] = self.forward(
             _random_inputs,
@@ -860,35 +820,38 @@ class JAXStreamablePipeline:
         self.initialized = True
         self.logger.info(f"Compilation done in {time.time() - start:.2f}s")
 
-    def preprocess_input_ffmpeg(
+    def preprocess_inputs_with_ffmpeg(
         self,
         data: list[bytes],
         sampling_rate: int = 16000,
-        backend: Parallel = JAXThreadParallel,  # Always takes a list of inputs
-    ) -> tuple[AUDIO_FILES_DTYPE, int]:
+        parallel_backend: Parallel = JAXThreadParallel,  # Always takes a list of inputs
+        logger: BoundLogger | None = None,
+    ) -> tuple[AudioFilesDType, int]:
         # returns batch_size x VEC[data_length[float32]],for a single input batch_size will be 1
         # so returned array will have a shape of (batches, data_length)
-        start: float = time.time()
-        converted: np.ndarray[tuple[int, int], np.dtype[np.float32]] = np.array(
-            backend(delayed(ffmpeg_read)(d, sampling_rate=sampling_rate) for d in data), dtype=object
+        return preprocess_inputs_with_ffmpeg(
+            data=data,
+            sampling_rate=sampling_rate,
+            parallel_backend=parallel_backend,
+            logger=logger or self.logger,
         )
-        self.logger.debug(f"ffmpeg conversion", num_items=len(data), time_taken=f"{time.time()-start:.2}s")
-        return converted, sampling_rate
 
-    def resample_input_with_fn(
+    def resample_inputs_with_fn(
         self,
-        data: AUDIO_FILES_DTYPE,  #
-        resampler_fn: Callable[..., AUDIO_FILES_DTYPE],
+        data: AudioFilesDType,  #
+        resampler_fn: Callable[..., AudioFilesDType],
         in_sampling_rate: int,
         out_sampling_rate: int = 16000,
-        backend: Parallel = JAXThreadParallel,
-    ) -> tuple[AUDIO_FILES_DTYPE, float]:
+        parallel_backend: Parallel = JAXThreadParallel,
+        logger: BoundLogger | None = None,
+    ) -> tuple[AudioFilesDType, float]:
         # accepts batch_size x VEC[data_length[float32]]
         # returns batch_size x VEC[data_length[float32]]
-        start: float = time.time()
-        converted: AUDIO_FILES_DTYPE = np.array(
-            backend(delayed(resampler_fn)(d, orig_sr=in_sampling_rate, target_sr=out_sampling_rate) for d in data),
-            dtype=object,
+        return resample_inputs_with_fn(
+            data=data,
+            in_sampling_rate=in_sampling_rate,
+            out_sampling_rate=out_sampling_rate,
+            resampler_fn=resampler_fn,
+            parallel_backend=parallel_backend,
+            logger=logger or self.logger,
         )
-        self.logger.debug(f"resampling", num_items=data.shape[0], time_taken=f"{time.time()-start:.2}s")
-        return converted, float(in_sampling_rate) / float(out_sampling_rate)

@@ -33,7 +33,7 @@ phases:
           --build-arg SOURCE_IMAGE_VERSION="${SOURCE_IMAGE_VERSION}" \
           -t "${DESTINATION_IMAGE_VERSION}" \
           -t "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
-          "./SageMaker"
+          "./sagemaker"
       # Testing
       # Verify the Image is KernelApp Compatible
       # Run the container with a KernelGateway to validate that the kernels are visible from the REST endpoint exposed to the host.

@@ -20,3 +20,6 @@
 # # You should have received a copy of the APACHE LICENSE, VERSION 2.0
 # # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
 #
+"""Common code for performing fast `automatic speech recognition`, `transcription` and `translation`
+using open-source models based on [open-ai](https://openai.com/)'s [whisper](https://openai.com/research/whisper) project
+"""

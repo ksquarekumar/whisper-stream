@@ -1,7 +1,26 @@
 #!python3
-# SPDX-FileCopyrightText: 2023-present krishnakumar <krishna.kumar@peak.ai>
 #
-# SPDX-License-Identifier: Apache-2.0
+# # Copyright © 2023 krishnakumar <ksquarekumar@gmail.com>.
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License"). You
+# # may not use this file except in compliance with the License. A copy of
+# # the License is located at:
+# #
+# # https://github.com/ksquarekumar/whisper-stream/blob/main/LICENSE
+# #
+# # or in the "license" file accompanying this file. This file is
+# # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# # ANY KIND, either express or implied. See the License for the specific
+# # language governing permissions and limitations under the License.
+# #
+# # This file is part of the whisper-stream.
+# # see (https://github.com/ksquarekumar/whisper-stream)
+# #
+# # SPDX-License-Identifier: Apache-2.0
+# #
+# # You should have received a copy of the APACHE LICENSE, VERSION 2.0
+# # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
+#
 from pathlib import Path
 from typing import Any, Callable, Literal
 
@@ -10,14 +29,16 @@ import click
 from botocore.exceptions import NoCredentialsError
 from joblib import Parallel, cpu_count, delayed
 
-from whisper_stream.constants import DEFAULT_DL_PATH
-from whisper_stream.logger import BoundLogger, get_application_logger
+from whisper_stream.core.constants import DEFAULT_DATA_PATH
+from whisper_stream.core.logger import BoundLogger, get_application_logger
 
-from whisper_stream.utils.data import load_data_samples_from_path
+from whisper_stream.core.helpers.data_loading import load_data_samples_from_path
 
 
 def _invalidate_renaming_if_exists(filenames: list[str], directory: Path) -> None:
-    found: list[str] = load_data_samples_from_path(filenames, directory, return_all=True)
+    found: list[str] = load_data_samples_from_path(
+        filenames, directory, return_all=True
+    )
     if len(found) > 0:
         error: str = f"Files exist, cannot rename"
         exception = FileExistsError(error)
@@ -30,7 +51,7 @@ def download_files_from_s3_and_rename(
     s3_bucket_prefix: str,
     pattern: str,
     logger: BoundLogger,
-    local_directory: Path = DEFAULT_DL_PATH,
+    local_directory: Path = DEFAULT_DATA_PATH,
     rename_all: bool = True,
     rename_with: str = "audio",
 ) -> None:
@@ -53,11 +74,19 @@ def download_files_from_s3_and_rename(
     # Initialize a Boto3 S3 client
     try:
         # List objects in the specified S3 bucket
-        logger.info("Listing objects in the S3 bucket", Bucket=s3_bucket, Prefix=s3_bucket_prefix)
+        logger.info(
+            "Listing objects in the S3 bucket",
+            Bucket=s3_bucket,
+            Prefix=s3_bucket_prefix,
+        )
         objects = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=s3_bucket_prefix)
 
         # Download files that match the pattern
-        logger.info("Downloading files from S3 bucket", Bucket=s3_bucket, Prefix=s3_bucket_prefix)
+        logger.info(
+            "Downloading files from S3 bucket",
+            Bucket=s3_bucket,
+            Prefix=s3_bucket_prefix,
+        )
 
         # Make jobs
         jobs: list[tuple[str, str, str, int]] = []
@@ -76,8 +105,9 @@ def download_files_from_s3_and_rename(
         # check if safe
         _invalidate_renaming_if_exists(filenames=filenames, directory=local_directory)
         # Download in parallel
-        Parallel(n_jobs=cpu_count(), backend="threading")(
-            delayed(s3_client.download_file)(bucket, obj_key, local_path) for bucket, obj_key, local_path, _ in jobs
+        Parallel(n_jobs=cpu_count(), parallel_backend="threading")(
+            delayed(s3_client.download_file)(bucket, obj_key, local_path)
+            for bucket, obj_key, local_path, _ in jobs
         )
 
     except NoCredentialsError as e:
@@ -90,7 +120,12 @@ def download_files_from_s3_and_rename(
 
 @click.command()
 @click.option(
-    "--s3-bucket", required=True, prompt="S3 Bucket Name", help="Name of the S3 bucket", show_default=True, type=str
+    "--s3-bucket",
+    required=True,
+    prompt="S3 Bucket Name",
+    help="Name of the S3 bucket",
+    show_default=True,
+    type=str,
 )
 @click.option(
     "--s3-bucket-prefix",
@@ -110,7 +145,7 @@ def download_files_from_s3_and_rename(
 )
 @click.option(
     "--local-directory",
-    default=DEFAULT_DL_PATH,
+    default=DEFAULT_DATA_PATH,
     prompt="Local Directory",
     help="Local directory to save downloaded files",
     show_default=True,
@@ -128,13 +163,17 @@ def download_files_from_s3_and_rename_cli(
     s3_bucket: str,
     s3_bucket_prefix: str,
     pattern: str,
-    local_directory: Path = DEFAULT_DL_PATH,
+    local_directory: Path = DEFAULT_DATA_PATH,
     rename_all: Literal["Y", "N"] = "N",
     rename_with: str = "audio",
 ) -> None:
     if rename_all == "Y":
         rename_with = click.prompt(
-            "Enter prefix to rename files with", default="audio", show_default=True, hide_input=False, type=str
+            "Enter prefix to rename files with",
+            default="audio",
+            show_default=True,
+            hide_input=False,
+            type=str,
         )
 
     click.confirm(

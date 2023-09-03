@@ -5,21 +5,25 @@ channels:
   - nvidia
   - huggingface
   - conda-forge
-  - defaults
+  - nodefaults
 dependencies:
   - python~=3.11
   - pip>=23.2.1
   - wheel
-  - build
+  - python-build
   - flit
-  - cudatoolkit~=11.8.0
-  - cudnn~=8.8.0
-  - cuda-nvcc
-  - orjson
-  - dill
-  - pathos
-  - joblib
-  - accelerate>=0.20.3
-  - transformers>=4.27.4
-  - cached-property
   - virtualenv
+  # cuda
+  - cudatoolkit~=11.8.0
+  - cudnn~=8.9.0
+  - jaxlib=*=*cuda*
+  - jax
+  - cuda-nvcc
+  - nccl
+  - mkl
+  # dl
+  - transformers
+  # utils
+  - ffmpeg
+  # libs
+  - structlog

@@ -3,4 +3,4 @@
 **/*
 
 ## Add only what we need
-!ssm.ssh
+scripts/ssm.ssh
