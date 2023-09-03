@@ -13,6 +13,10 @@ dependencies:
   - python-build
   - flit
   - virtualenv
+  # profilers
+  - filprofiler
+  - yappi
+  - viztracer
   # cuda
   - cudatoolkit~=11.8.0
   - cudnn~=8.9.0
