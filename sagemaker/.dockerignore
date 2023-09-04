@@ -4,3 +4,5 @@
 
 ## Add only what we need
 scripts/ssm.ssh
+environment_full.yml
+requirements.txt

@@ -52,12 +52,15 @@ RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
 # hadolint ignore=DL3045
 COPY scripts/ssm.ssh /usr/local/bin/ssm.ssh
 
+COPY environment_full.yml "${HOME}/environment_full.yml"
+COPY requirements.txt "${HOME}/requirements.txt"
+
 # hadolint ignore=DL3013,SC2261
 RUN \
     # CONDA/MAMBA Corrupts htop/nano from apt
-    mamba install htop nano \
+    mamba env update -f "${HOME}/environment_full.yml" \
     # PRE-DEPS
-    && pip install --no-cache-dir --upgrade pip setuptools_rust build wheel flit \
+    && pip install --no-cache-dir --upgrade pip setuptools_rust python-build wheel flit \
     # ML (JAX)
     # install the version of jax that can use system cuda, should work as the source image indicates cuda is installed in /usr/local
     && pip install --no-cache-dir --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
@@ -65,11 +68,9 @@ RUN \
     && pip install --no-cache-dir --upgrade nvidia-pyindex \
     && pip install --no-cache-dir --upgrade tensorrt==8.5.3.1 nvidia-pytriton>=0.2.4 "pyzmq~=23.0" "PyYAML<5.5,>=3.10" \
     # ML Libs & Deps [torch provides it's own cuda]
-    flax "transformers[torch]>=4.31.2" faster-whisper cached-property accelerate>=0.20.3 numba orjson pathos dill joblib ctranslate2 \
+    && pip install  --no-cache-dir -r "{$HOME}/requirements.txt" --upgrade \
     # AWS Stuff
-    sagemaker-training multi-model-server \
-    # Pre-Install Proejct Packages
-    black mypy structlog ruff tqdm nbconvert ipywidgets ipython virtualenv widgetsnbextension \
+    && pip install  --no-cache-dir sagemaker-training multi-model-server --upgrade \
     # Install IPyKernel
     && python -m pip install --no-cache-dir --upgrade ipykernel \
     && python -m ipykernel install --sys-prefix \

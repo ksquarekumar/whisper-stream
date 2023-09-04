@@ -23,7 +23,7 @@ phases:
       - |
         docker buildx build \
           --progress=plain \
-          -f SageMaker/Dockerfile.SageMaker \
+          -f sagemaker/Dockerfile.sagemaker \
           --cache-from "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
           --build-arg USER_NAME="${USER_NAME}" \
           --build-arg EMAIL_ADDRESS="${EMAIL_ADDRESS}" \
