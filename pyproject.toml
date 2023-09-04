@@ -57,6 +57,9 @@ faster-whisper = { version = ">=0.7.1", optional = true }
 filprofiler = { version = ">=2023.3.1", optional = true }
 viztracer = { version = ">=0.15.6", optional = true }
 
+[tool.poetry.scripts]
+s3_bulk_download = "whisper_stream.core.helpers.s3_utils:download_files_from_s3_and_rename_cli"
+
 [tool.poetry.extras]
 service_jax = ["flax", "jax", "jaxlib"]
 debug = ["filprofiler", "viztracer"]
