@@ -1,0 +1,116 @@
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[tool.poetry]
+name = "faster-whisper-api"
+version = "0.0.1"
+description = "serving app for faster-whisper"
+readme = "README.md"
+license = "Apache License 2.0"
+keywords = ["faster-whisper", "api"]
+authors = ["krishnakumar <ksquarekumar@gmail.com>"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+packages = [{ include = "faster_whisper_api", from = "./faster-whisper-api" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<=3.12"
+av = ">=10"
+huggingface_hub = ">=0.13"
+tokenizers = ">=0.13"
+onnxruntime = ">=1.14"
+transformers = { version = ">=4.32.1", extras = ["torch"] }
+whisper-stream = { path = "..", extras = [
+  "ctranslate2",
+  "faster-whisper"
+], develop = true }
+llvmlite = ">=0.34.1"
+fastapi = { version = ">=0.103.1", extras = ["all"] }
+uvicorn = { version = ">=0.23.2", extras = ["standard"] }
+python-dotenv = "^1.0.0"
+pydantic = { version = ">2.0", extras = ["pydantic-settings"] }
+uvloop = "^0.17.0"
+dependency-injector = { version = "^4.41.0", extras = ["pydantic"] }
+pydantic-settings = ">=2.0.3"
+asgi-logger = "^0.1.0"
+
+[tool.poetry.group.test.dependencies]
+coverage = { version = ">=6.5", extras = ["toml"] }
+pytest = ">=7.4.0"
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.7.0"
+mypy = ">=1.5.0"
+ruff = ">=0.0.286"
+nbqa = ">=1.7.0"
+pre-commit = ">=3.4.0"
+pyclean = ">=2.7.4"
+commitizen = ">=3.7.0"
+watchdog = "*"
+types-tabulate = "*"
+types-PyYAML = "*"
+types-requests = "*"
+types-urllib3 = "*"
+types-decorator = "*"
+types-six = "*"
+types-Pygments = "*"
+types-colorama = "*"
+types-jsonschema = "*"
+types-setuptools = "*"
+types-docutils = "*"
+jupyter = ">=1.0.0"
+ipykernel = ">=6.25.0"
+ipython = ">=8.14.0"
+nbconvert = ">=7.7.4"
+jupyter_contrib_nbextensions = "*"
+jupyter_nbextensions_configurator = "*"
+tqdm = "*"
+ipywidgets = "*"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 88
+skip-string-normalization = true
+
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+pretty = true
+follow_imports = "normal"
+ignore_missing_imports = true
+# Know exactly what you're doing
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+show_absolute_path = true
+# Ensure Full Coverage
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+# Restrict dynamic typing
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_return_any = true
+# Explicit is better than implicit
+strict_equality = true
+strict_optional = true
+no_implicit_optional = true
+# third party decorators
+allow_any_decorated = false
+allow_untyped_decorators = true

@@ -20,17 +20,19 @@
 # # You should have received a copy of the APACHE LICENSE, VERSION 2.0
 # # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
 #
-from enum import IntEnum
+import logging
 import os
-from platform import python_version, architecture
 import sys
+from enum import IntEnum
+from importlib.metadata import version
+from platform import architecture, python_version
 from typing import Any, Literal, NewType, TypeGuard
+
+import orjson
 import structlog
 from structlog.types import Processor
-import importlib_metadata
-import logging
 
-BoundLogger = NewType("BoundLogger", structlog.stdlib.BoundLogger)
+BoundLogger = NewType("BoundLogger", structlog._config.BoundLoggerLazyProxy)
 
 LOG_LEVEL_NAMES = Literal[
     "NOTSET",
@@ -57,7 +59,7 @@ class LogLevels(IntEnum):
     NOTSET = 0
 
 
-_NAME_TO_LEVEL: dict[LOG_LEVEL_NAMES, LogLevels] = {
+NAMES_TO_LEVELS: dict[LOG_LEVEL_NAMES, LogLevels] = {
     "NOTSET": LogLevels.NOTSET,
     "DEBUG": LogLevels.DEBUG,
     "INFO": LogLevels.INFO,
@@ -71,7 +73,7 @@ _NAME_TO_LEVEL: dict[LOG_LEVEL_NAMES, LogLevels] = {
 
 
 def _is_level(name: str) -> TypeGuard[LOG_LEVEL_NAMES]:
-    return name.upper() in _NAME_TO_LEVEL
+    return name.upper() in NAMES_TO_LEVELS
 
 
 def get_log_level_name(name: str) -> LOG_LEVEL_NAMES:
@@ -80,7 +82,7 @@ def get_log_level_name(name: str) -> LOG_LEVEL_NAMES:
 
 
 def get_log_level_from_name(name: str) -> LogLevels:
-    return _NAME_TO_LEVEL[get_log_level_name(name=name)]
+    return NAMES_TO_LEVELS[get_log_level_name(name=name)]
 
 
 def _get_processors() -> list[structlog.types.Processor]:
@@ -90,6 +92,8 @@ def _get_processors() -> list[structlog.types.Processor]:
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.format_exc_info,
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
@@ -104,7 +108,8 @@ def _get_processors() -> list[structlog.types.Processor]:
         processors = [
             *shared_processors,
             structlog.processors.dict_tracebacks,
-            structlog.processors.KeyValueRenderer(
+            structlog.processors.JSONRenderer(
+                serializer=orjson.dumps,
                 key_order=["event", "time_taken"],
                 drop_missing=True,
                 repr_native_str=True,
@@ -116,7 +121,7 @@ def _get_processors() -> list[structlog.types.Processor]:
 
 CONTEXT_VARS = {
     "application": "whisper_stream",
-    "version": str(importlib_metadata.version("whisper_stream")),
+    "version": str(version("whisper_stream")),
     "python_version": python_version(),
     "platform_architecture": architecture(),
 }
@@ -128,6 +133,7 @@ def get_application_logger(
     name: str,
     min_log_level: LOG_LEVEL_NAMES | None = "INFO",
     binds: dict[str, Any] | None = None,
+    context_vars: dict[str, Any] | None = None,
 ) -> BoundLogger:
     # quicker fast path
     if name in _LOGGERS:
@@ -135,7 +141,16 @@ def get_application_logger(
     if not structlog.is_configured():
         setup_logging(min_log_level=min_log_level)
     _binds = binds or {}
-    _LOGGERS[name] = BoundLogger(structlog.get_logger(**_binds, **CONTEXT_VARS))
+    _context_vars = context_vars or CONTEXT_VARS
+    _LOGGERS[name] = BoundLogger(
+        structlog.get_logger(
+            name,
+            {
+                **_context_vars,
+                **_binds,
+            },
+        )
+    )
     return _LOGGERS[name]
 
 
@@ -145,10 +160,17 @@ def setup_logging(min_log_level: LOG_LEVEL_NAMES | None = "INFO") -> None:
     )
     logging.basicConfig(level=_log_level.value)
     structlog.configure(
-        processors=_get_processors(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.make_filtering_bound_logger(min_level=_log_level),
+        processors=_get_processors(),
+        cache_logger_on_first_use=True,
     )
     structlog.contextvars.bind_contextvars(**CONTEXT_VARS)
 
 
-__all__: list[str] = ["BoundLogger", "get_application_logger", "LOG_LEVEL_NAMES"]
+__all__: list[str] = [
+    "BoundLogger",
+    "get_application_logger",
+    "LOG_LEVEL_NAMES",
+    "NAMES_TO_LEVELS",
+]
