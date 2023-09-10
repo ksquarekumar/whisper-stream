@@ -1,0 +1,72 @@
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[[tool.poetry.source]]
+name = "jax_cuda"
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+priority = "explicit"
+
+[[tool.poetry.source]]
+name = "torch_cu118"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[tool.poetry]
+name = "whisper-stream-jax-pipelines"
+version = "0.0.5"
+description = "\"jax/flax pipelines based off of `whisper-jax`\""
+readme = "README.md"
+license = "Apache License 2.0"
+keywords = ["whisper", "jax"]
+authors = ["krishnakumar <ksquarekumar@gmail.com>"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+packages = [
+  { include = "whisper_stream/core", from = "../.." },
+  { include = "whisper_stream/vendored", from = "../.." },
+  { include = "whisper_stream/projects/jax_pipelines", from = "../.." }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<=3.12"
+joblib = ">=1.3.2"
+pathos = ">=0.3.1"
+dill = ">=0.3.7"
+structlog = ">=23.1.0"
+orjson = ">=3.9.5"
+cached_property = ">=1.5.2"
+click = ">=8.1.7"
+boto3 = ">=1.28.38"
+librosa = ">=0.10.1"
+soundfile = ">=0.12.1"
+# specific to projects/jax_pipelines
+flax = { version = ">=0.7.0" }
+jaxlib = { version = ">=0.4.13", extras = ["cuda12_pip"], source = "jax_cuda" }
+jax = { version = "*" }
+transformers = { version = ">=4.32.1", extras = ["torch"] }
+torch = { version = ">=2.0.0", optional = true, python = "^3.11", markers = "extra=='cuda'", source = "torch_cu118" }
+datasets = { version = "*", optional = true, extras = [] }
+
+[tool.poetry.group.test.dependencies]
+coverage = { version = ">=6.5", extras = ["toml"] }
+pytest = ">=7.4.0"
+
+[tool.poetry.scripts]
+download_files_from_s3_and_rename = "whisper_stream.core.utils.s3_utils:download_files_from_s3_and_rename_cli"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 88
+skip-string-normalization = true
+
+[tool.ruff]
+extend = "../../pyproject.toml"

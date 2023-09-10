@@ -22,19 +22,20 @@
 #
 import logging
 import os
-import sys
 from enum import IntEnum
 from importlib.metadata import version
 from platform import architecture, python_version
-from typing import Any, Literal, NewType, TypeGuard
-
+import sys
+from typing import Final, Literal, TypeAlias, TypeGuard
 import orjson
+
 import structlog
+from structlog.stdlib import BoundLogger as StdLibBoundLogger
 from structlog.types import Processor
 
-BoundLogger = NewType("BoundLogger", structlog._config.BoundLoggerLazyProxy)
+BoundLogger: TypeAlias = StdLibBoundLogger
 
-LOG_LEVEL_NAMES = Literal[
+LogLevelNames = Literal[
     "NOTSET",
     "DEBUG",
     "INFO",
@@ -59,7 +60,7 @@ class LogLevels(IntEnum):
     NOTSET = 0
 
 
-NAMES_TO_LEVELS: dict[LOG_LEVEL_NAMES, LogLevels] = {
+NAMES_TO_LEVELS: dict[LogLevelNames, LogLevels] = {
     "NOTSET": LogLevels.NOTSET,
     "DEBUG": LogLevels.DEBUG,
     "INFO": LogLevels.INFO,
@@ -72,29 +73,49 @@ NAMES_TO_LEVELS: dict[LOG_LEVEL_NAMES, LogLevels] = {
 }
 
 
-def _is_level(name: str) -> TypeGuard[LOG_LEVEL_NAMES]:
-    return name.upper() in NAMES_TO_LEVELS
+def is_valid_log_level_name(name: str) -> TypeGuard[LogLevelNames]:
+    return name in NAMES_TO_LEVELS
 
 
-def get_log_level_name(name: str) -> LOG_LEVEL_NAMES:
+def get_log_level_name_from_string(name: str) -> LogLevelNames:
     _name: str = name.upper()
-    return _name if _is_level(_name) else "INFO"
+    return _name if is_valid_log_level_name(_name) else "INFO"
 
 
-def get_log_level_from_name(name: str) -> LogLevels:
-    return NAMES_TO_LEVELS[get_log_level_name(name=name)]
+def get_log_level_int_from_name(name: str) -> LogLevels:
+    return NAMES_TO_LEVELS[get_log_level_name_from_string(name=name)]
 
 
-def _get_processors() -> list[structlog.types.Processor]:
+def get_context_vars(application_name: str = "whisper_stream") -> dict[str, str]:
+    return {
+        "application": application_name,
+        "version": str(version(application_name)),
+        "python_version": python_version(),
+        "platform_architecture": str(architecture()),
+    }
+
+
+DEFAULT_TIMESTAMP_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
+DEFAULT_CONTEXT_VARS: Final[dict[str, str]] = get_context_vars()
+_LOGGERS: dict[tuple[str, str, str], BoundLogger] = {}
+
+
+def _get_timestamper(
+    fmt: str = DEFAULT_TIMESTAMP_FORMAT,
+) -> structlog.processors.TimeStamper:
+    return structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S")
+
+
+def _get_processors(
+    fmt: str = DEFAULT_TIMESTAMP_FORMAT,
+) -> list[structlog.types.Processor]:
     processors: list[Processor] = []
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.StackInfoRenderer(),
-        structlog.dev.set_exc_info,
-        structlog.processors.format_exc_info,
-        structlog.processors.TimeStamper(fmt="iso"),
+        _get_timestamper(fmt=fmt),
     ]
 
     if sys.stdout.isatty():
@@ -107,9 +128,7 @@ def _get_processors() -> list[structlog.types.Processor]:
         # Print JSON when we run in production
         processors = [
             *shared_processors,
-            structlog.processors.dict_tracebacks,
-            structlog.processors.JSONRenderer(
-                serializer=orjson.dumps,
+            structlog.processors.KeyValueRenderer(
                 key_order=["event", "time_taken"],
                 drop_missing=True,
                 repr_native_str=True,
@@ -119,58 +138,67 @@ def _get_processors() -> list[structlog.types.Processor]:
     return processors
 
 
-CONTEXT_VARS = {
-    "application": "whisper_stream",
-    "version": str(version("whisper_stream")),
-    "python_version": python_version(),
-    "platform_architecture": architecture(),
-}
-
-_LOGGERS: dict[str, BoundLogger] = {}
-
-
 def get_application_logger(
-    name: str,
-    min_log_level: LOG_LEVEL_NAMES | None = "INFO",
-    binds: dict[str, Any] | None = None,
-    context_vars: dict[str, Any] | None = None,
+    scope: str,
+    application_name: str = "whisper_stream",
+    min_log_level: LogLevelNames | None = "INFO",
+    datetime_fmt: str = DEFAULT_TIMESTAMP_FORMAT,
+    context_vars: dict[str, str] = DEFAULT_CONTEXT_VARS,
+    binds: dict[str, str] | None = None,
 ) -> BoundLogger:
     # quicker fast path
-    if name in _LOGGERS:
-        return _LOGGERS[name]
-    if not structlog.is_configured():
-        setup_logging(min_log_level=min_log_level)
-    _binds = binds or {}
-    _context_vars = context_vars or CONTEXT_VARS
-    _LOGGERS[name] = BoundLogger(
-        structlog.get_logger(
-            name,
-            {
-                **_context_vars,
-                **_binds,
-            },
-        )
+    key: tuple[str, str, str] = (
+        scope,
+        application_name,
+        orjson.dumps(context_vars).decode("utf-8"),
     )
-    return _LOGGERS[name]
+    if key in _LOGGERS:
+        return _LOGGERS[key]
+    # do the work the we need to
+    _binds: dict[str, str] = binds or {}
+    _setup_logging(
+        min_log_level=min_log_level,
+        datetime_fmt=datetime_fmt,
+        context_vars=context_vars,
+    )
+
+    _LOGGERS[key] = structlog.get_logger(
+        name=scope,
+        **_binds,
+    )
+    return _LOGGERS[key]
 
 
-def setup_logging(min_log_level: LOG_LEVEL_NAMES | None = "INFO") -> None:
-    _log_level: LogLevels = get_log_level_from_name(
-        name=min_log_level if min_log_level else os.environ.get("LOG_LEVEL", "INFO")
+def _setup_logging(
+    min_log_level: LogLevelNames | None = "INFO",
+    datetime_fmt: str = DEFAULT_TIMESTAMP_FORMAT,
+    context_vars: dict[str, str] = DEFAULT_CONTEXT_VARS,
+) -> None:
+    _min_log_level: LogLevels = get_log_level_int_from_name(
+        min_log_level
+        if min_log_level is not None
+        else os.environ.get("LOG_LEVEL", "INFO")
     )
-    logging.basicConfig(level=_log_level.value)
+    logging.basicConfig(level=_min_log_level.value)
     structlog.configure(
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.make_filtering_bound_logger(min_level=_log_level),
-        processors=_get_processors(),
+        logger_factory=structlog.PrintLoggerFactory(),
+        wrapper_class=structlog.make_filtering_bound_logger(
+            min_level=_min_log_level.value
+        ),
+        processors=_get_processors(fmt=datetime_fmt),
         cache_logger_on_first_use=True,
     )
-    structlog.contextvars.bind_contextvars(**CONTEXT_VARS)
+    structlog.contextvars.bind_contextvars(**context_vars)
 
 
-__all__: list[str] = [
+all: list[str] = [
     "BoundLogger",
-    "get_application_logger",
-    "LOG_LEVEL_NAMES",
+    "LogLevelNames",
+    "LogLevels",
     "NAMES_TO_LEVELS",
+    "is_valid_log_level_name",
+    "get_log_level_name_from_string",
+    "get_log_level_int_from_name" "get_context_vars",
+    "get_application_logger",
+    "DEFAULT_TIMESTAMP_FORMAT",
 ]

@@ -1,4 +1,4 @@
-[![CodeQL](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql) ![CodeBuild](https://codebuild.ap-south-1.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiS2FMcnRKSWhrNE0zYk0wR3dBRzlQSWVjQVBsbHhsYmwySWt6SG9zU1NRVWdrN1ZkTjJLNi83R1JPd3NWaDM5eU9sS0hVUUd4ODdUSGZ2Z3NCajZQbGNBPSIsIml2UGFyYW1ldGVyU3BlYyI6InFIYTNab2s1a3oxdWJVTnYiLCJtYXRlcmlhbFNldFNlcmlhbCI6Mn0%3D&branch=main)
+[![CodeQL](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ksquarekumar/whisper-stream/actions/workflows/github-code-scanning/codeql)
 
 # _Whisper-Stream_ 🌬️
 
@@ -23,6 +23,12 @@ pip install "whisper-stream[{feature},...] @ git+https://github.com/ksquarekumar
 
 > This project uses [pyenv](https://github.com/pyenv/pyenv), [mamba](https://github.com/mamba-org/mamba) and [`poetry`](https://python-poetry.org/) to manage environments, dependencies and building wheels.
 
+> For correct building of artifacts, this proejct also relies on some poetry plugins:
+>
+> > [poetry-multiproject-plugin](https://github.com/davidvujic/poetry-multiproject-plugin)
+>
+> > [poetry-conda](https://github.com/renan-r-santos/poetry-conda)
+
 > For available extras/features refer to the `extras` section under `[tool.poetry.extras]` project [manifest](https://github.com/ksquarekumar/whisper-stream/blob/main/pyproject.toml)
 
 ### _Step by Step installation._
@@ -43,11 +49,14 @@ curl https://pyenv.run | bash
 
 ```shell
 pyenv install mambaforge-22.9.0-3 && pyenv shell mambaforge-22.9.0-3 && mamba activate base
-mamba install conda-lock poetry
+mamba install poetry
 mamba update --name base --update-all
+exec $(SHELL)
+poetry self add poetry-conda poetry-multiproject-plugin
+poetry self update
 ```
 
-##### _2.1. Optionally, set it as the default global interpreter in `pyenv`._
+##### _2.2. Optionally, set it (`base`) as the default global interpreter in `pyenv`._
 
 ```shell
 pyenv global mambaforge-22.9.0-3
@@ -60,22 +69,15 @@ exec $(SHELL)
 mamba env create -f conda.yml && mamba activate whisper_py311
 ```
 
-##### _3.1. Optionally, set it as the default local environment for this project._
-
-```shell
-pyenv local mambaforge-22.9.0-3/envs/whisper_py311
-exec $(SHELL)
-```
-
-#### _4. Install project dependencies in a project local virtual environment with `poetry`._
+#### _4. Initialize `poetry` with the correct `python` and install project dependencies in a project local virtual environment with `poetry`._
 
 ```shell
 mamba activate whisper_py311
-pip install conda-lock poetry-conda
+poetry env use "$(which python)"
 poetry install -E "[list of features,..]"
 ```
 
-- For `development` you probably want all of `"[dev,test]"` groups so `poetry install` is what you need
+- For `development` installs you probably want all of `"[dev,test]"` groups so `poetry install` is what you need
 
 - For `non-development` install you probably want to exclude `[dev,test]` groups, so install with:
 
@@ -96,8 +98,8 @@ pre-commit install --install-hooks
 - within the `system` python for containers
 
 ```console
-pip install requirements.{feature}.txt
-pip install .["feature"]
+pip install projects/{feature_set}/requirements.txt
+pip install .["{feature_set_extras}",..]
 ```
 
 - with `conda` as the system's environment manager
@@ -105,13 +107,15 @@ pip install .["feature"]
 ```console
 conda install mamba
 mamba env update -f conda.yml
-pip install requirements.{feature}.txt
-pip install .["feature"]
+pip install projects/{feature_set}/requirements.txt
+pip install .["{feature_set_extras}",..]
 ```
 
-### Features
+### Feature-Sets
 
-#### [Service-Jax](./docs/ServiceJax.md)
+#### [Pipelines-Jax](./projects/jax-pipelines/README.md)
+
+#### [Faster-Whisper-API](./projects/faster-whisper-api/README.md)
 
 ## License
 

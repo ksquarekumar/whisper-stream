@@ -61,14 +61,10 @@ repos:
       - id: nbqa-ruff
         additional_dependencies: [ruff==0.0.285]
         require_serial: true
-        args: ["--fix", "--config", "notebooks/ruff.toml"]
+        args: ["--fix", "--config", "development/notebooks/ruff.toml"]
         pass_filenames: false
     repo: https://github.com/nbQA-dev/nbQA
     rev: "1.7.0"
-  - hooks:
-      - id: nbstripout
-    repo: https://github.com/kynan/nbstripout
-    rev: "0.6.1"
   - hooks:
       - args:
           - --ignore
@@ -100,23 +96,89 @@ repos:
     repo: https://github.com/commitizen-tools/commitizen
     rev: 3.7.0
   - hooks:
-      - id: generate-lock
-        name: Generate `poetry` lock for `pyproject`
+      - id: generate-lock-faster-whisper-api
+        name: Generate `poetry` lock for `faster-whisper-api` `pyproject`
         language: system
-        stages: [manual]
+        stages: [manual, pre-commit]
+        pass_filenames: false
+        entry: poetry lock
+        args: ["-C", "./projects/faster-whisper-api"]
+        files: ^(.*/)?pyproject\.toml$
+      - id: generate-lock-jax-pipelines
+        name: Generate `poetry` lock for `jax-pipelines` `pyproject`
+        language: system
+        stages: [manual, pre-commit]
+        pass_filenames: false
+        entry: poetry lock
+        args: ["-C", "./projects/jax-pipelines"]
+        files: ^(.*/)?pyproject\.toml$
+      - id: generate-lock-root
+        name: Generate `poetry` lock for root `pyproject`
+        language: system
+        stages: [manual, pre-commit]
         pass_filenames: false
         entry: poetry lock
         args: ["-C", "."]
         files: ^(.*/)?pyproject\.toml$
-      - id: check-sync
-        name: Check `pyproject` and `poetry.lock` are in-sync and valid
+      - id: check-sync-faster-whisper-api
+        name: Check `faster-whisper-api` `pyproject` and `poetry.lock` are in-sync and valid
+        language: system
+        pass_filenames: false
+        entry: poetry check
+        args: ["--lock", "-C", "./projects/faster-whisper-api"]
+        files: ^(.*/)?(poetry\.lock|pyproject\.toml)$
+      - id: check-sync-jax-pipelines
+        name: Check `jax-pipelines` `pyproject` and `poetry.lock` are in-sync and valid
+        language: system
+        pass_filenames: false
+        entry: poetry check
+        args: ["--lock", "-C", "./projects/jax-pipelines"]
+        files: ^(.*/)?(poetry\.lock|pyproject\.toml)$
+      - id: check-sync-root
+        name: Check `root` `pyproject` and `poetry.lock` are in-sync and valid
         language: system
         pass_filenames: false
         entry: poetry check
         args: ["--lock", "-C", "."]
         files: ^(.*/)?(poetry\.lock|pyproject\.toml)$
-      - id: export-service-jax
-        name: run poetry export on `main` group to sync lock file with requirements.service-jax.txt
+      - id: export-faster_whisper_api
+        name: run poetry export on `main` deps for `faster_whisper_api` project to sync lock file with projects/faster-whisper-api/requirements.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--only",
+            "main",
+            "-C",
+            "./projects/faster-whisper-api",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
+      - id: export-jax_pipelines
+        name: run poetry export on `main` deps for `jax_pipelines` project to sync lock file with projects/jax-pipelines/requirements.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--only",
+            "main",
+            "-C",
+            "./projects/jax-pipelines",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
+      - id: export-root-core-faster_whisper_api
+        name: run poetry export on `faster_whisper_api` extras to sync lock file with requirements.core.faster_whisper_api.txt
         language: system
         pass_filenames: false
         entry: poetry export
@@ -125,11 +187,64 @@ repos:
             "--only",
             "main",
             "--extras",
-            "service_jax",
+            "faster_whisper_api",
             "-f",
             "requirements.txt",
             "-o",
-            "requirements.service_jax.txt",
+            "requirements.core.faster_whisper_api.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
+      - id: export-root-core-jax_pipelines
+        name: run poetry export on `jax_pipelines` extras to sync lock file with requirements.core.jax_pipelines.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--only",
+            "main",
+            "--extras",
+            "jax_pipelines",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.core.jax_pipelines.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
+      - id: export-root-core-all
+        name: run poetry export on all `core` extras to sync lock file with requirements.all.projects.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--only",
+            "main",
+            "--extras",
+            "jax_pipelines",
+            "--extras",
+            "faster_whisper_api",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.all.projects.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
+      - id: export-root-all
+        name: run poetry export on all `all` extras to sync lock file with requirements.all.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--extras=all",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.all.txt",
             "--without-hashes",
           ]
         files: ^(.*/)?poetry\.lock$

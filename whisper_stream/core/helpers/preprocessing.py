@@ -31,7 +31,7 @@ from whisper_stream.core.helpers.parallel import (
     DEFAULT_PARALLEL_BACKEND,
 )
 from whisper_stream.core.logger import BoundLogger
-from whisper_stream.typings import AudioFilesDType
+from whisper_stream.core.typings import AudioFilesDType
 
 try:
     import librosa

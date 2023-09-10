@@ -1,9 +1,0 @@
-channels:
-  - conda-forge
-  - nodefaults
-auto_stack: 1
-auto_activate_base: false
-auto_update_conda: true
-track_features:
-  - mkl
-channel_priority: flexible

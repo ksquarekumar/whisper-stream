@@ -3,12 +3,13 @@ name: whisper_py311
 channels:
   - nvidia/label/cuda-11.8.0
   - nvidia
-  - huggingface
   - conda-forge
+  - huggingface
   - nodefaults
 dependencies:
-  - conda-lock
   - python~=3.11
+  - appdirs
+  - conda-lock
   - pip>=23.2.1
   - wheel
   - python-build
@@ -16,7 +17,7 @@ dependencies:
   - virtualenv
   # cuda
   - cudatoolkit~=11.8.0
-  - cudnn~=8.8.0
+  - cudnn~=8.6.0
   - cuda-nvcc
   - nccl
   - mkl
@@ -39,7 +40,7 @@ dependencies:
   - structlog
   # - loguru
   # - icecream
-  # - uvicorn
+  - uvicorn
   - nbqa
   # jupyter
   - tqdm

@@ -1,9 +1,0 @@
-# Ignore everything at first
-*
-**/*
-
-## Add only what we need
-!/whisper_stream
-!/whisper_stream/**/*
-!pyproject.toml
-!README.md

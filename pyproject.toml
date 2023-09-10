@@ -18,9 +18,14 @@ name = "jax_cuda"
 url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
 priority = "explicit"
 
+[[tool.poetry.source]]
+name = "torch_cu118"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
 [tool.poetry]
 name = "whisper-stream"
-version = "0.0.4"
+version = "0.0.5"
 description = "\"packages and applications for asr-inferencing using `openai-whisper`\""
 readme = "README.md"
 license = "Apache License 2.0"
@@ -32,38 +37,42 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
+packages = [
+  { include = "whisper_stream/core", from = "." },
+  { include = "whisper_stream/vendored", from = "." },
+  { include = "whisper_stream/projects/jax_pipelines", from = "." },
+  { include = "whisper_stream/projects/faster_whisper_api", from = "." },
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<=3.12"
-joblib = ">=1.3.2"
-pathos = ">=0.3.1"
-dill = ">=0.3.7"
-structlog = ">=23.1.0"
-orjson = ">=3.9.5"
-cached_property = ">=1.5.2"
-click = ">=8.1.7"
-boto3 = ">=1.28.38"
-librosa = ">=0.10.1"
-soundfile = ">=0.12.1"
-transformers = { version = ">=4.32.1" }
-flax = { version = ">=0.7.0", optional = true }
-jaxlib = { version = "==0.4.13+cuda11.cudnn86", source = "jax_cuda", optional = true }
-jax = { version = "*", optional = true }
+# all optionals
+# specific to projects/jax_pipelines
+whisper-stream-jax-pipelines = { path = "./projects/jax-pipelines", develop = true, optional = true }
+# specific to projects/faster_whisper_api
+whisper-stream-faster-whisper-api = { path = "./projects/faster-whisper-api", develop = true, optional = true }
+# true optionals
 datasets = { version = "*", optional = true, extras = [] }
-torch = { version = ">=2.0.0", optional = true, python = "^3.11", markers = "extra=='cuda'" }
-nvidia-pytriton = { version = ">=0.2.5", optional = true }
-ctranslate2 = { version = ">=3.18.0", optional = true }
-faster-whisper = { version = ">=0.8.0", optional = true }
+torch = { version = ">=2.0.0", optional = true, python = "^3.11", markers = "extra=='cuda'", source = "torch_cu118" }
 filprofiler = { version = ">=2023.3.1", optional = true }
 viztracer = { version = ">=0.15.6", optional = true }
+nvidia-pytriton = { version = ">=0.2.5", optional = true }
 
 [tool.poetry.extras]
-service_jax = ["flax", "jax", "jaxlib"]
-debug = ["filprofiler", "viztracer"]
+jax_pipelines = ["whisper-stream-jax-pipelines"]
+faster_whisper_api = ["whisper-stream-faster-whisper-api"]
 benchmarks = ["datasets", "torch"]
+debug = ["filprofiler", "viztracer"]
 triton = ["nvidia-pytriton"]
-ctranslate2 = ["ctranslate2"]
-faster-whisper = ["ctranslate2", "faster-whisper", "torch"]
+all = [
+  "whisper-stream-jax-pipelines",
+  "whisper-stream-faster-whisper-api",
+  "datasets",
+  "torch",
+  "filprofiler",
+  "viztracer",
+  "nvidia-pytriton",
+]
 
 [tool.poetry.group.test.dependencies]
 coverage = { version = ">=6.5", extras = ["toml"] }
@@ -78,6 +87,7 @@ pre-commit = ">=3.4.0"
 pyclean = ">=2.7.4"
 commitizen = ">=3.7.0"
 watchdog = "*"
+types_ujson = "*"
 types-tabulate = "*"
 types-PyYAML = "*"
 types-requests = "*"
@@ -97,6 +107,12 @@ jupyter_contrib_nbextensions = "*"
 jupyter_nbextensions_configurator = "*"
 tqdm = "*"
 ipywidgets = "*"
+
+[tool.poetry.scripts]
+download_files_from_s3_and_rename = "whisper_stream.core.utils.s3_utils:download_files_from_s3_and_rename_cli"
+launch_faster_whisper_api = { reference = "whisper_stream.projects.faster_whisper_api.app.__main__", extras = [
+  "faster_whisper_api",
+], type = "file" }
 
 [tool.black]
 target-version = ["py311"]
@@ -128,7 +144,7 @@ unfixable = [
 fix = true
 
 [tool.ruff.isort]
-known-first-party = ["whisper_stream.core", "whisper_stream.jax_pipelines"]
+known-first-party = ["whisper_stream"]
 combine-as-imports = true
 case-sensitive = true
 force-sort-within-sections = true
@@ -139,15 +155,21 @@ split-on-trailing-comma = false
 ban-relative-imports = "all"
 
 [tool.ruff.per-file-ignores]
-# Tests can use magic values, assertions, and relative imports
-"whisper-stream/tests/**/*" = ["PLR2004", "S101", "TID252"]
+"development/notebooks/**/*" = ["PLR2004", "S101", "TID252"]
 
 [tool.mypy]
 strict = true
+namespace_packages = true
+explicit_package_bases = true
+# do not use relative paths
+exclude = [
+  'whisper_stream/vendored/',
+  'whisper_stream/vendored/whisper_jax',
+  'development/notebooks/',
+]
 warn_unreachable = true
 pretty = true
 follow_imports = "normal"
-exclude = ['^notebooks/.*', '^sagemaker/.*', '^whisper-stream/vendored/.*py$']
 ignore_missing_imports = true
 # Know exactly what you're doing
 show_column_numbers = true
@@ -179,17 +201,36 @@ module = 'tests'
 allow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = 'whisper_stream.vendored.*'
+module = 'whisper_stream.vendored'
+follow_imports = "skip"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = 'whisper_stream.vendored.whisper_jax'
+follow_imports = "skip"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = 'faster_whisper'
+follow_imports = "skip"
+allow_untyped_calls = true
+allow_untyped_defs = true
+
 [tool.coverage.run]
-source_pkgs = ["whisper_stream"]
+source_pkgs = [
+  "whisper_stream.core",
+  "whisper_stream.projects.pipelines_jax",
+  "whisper_stream.projects.faster_whisper_api",
+]
 branch = true
 parallel = true
-omit = ["whisper-stream/vendored/**/*", "tests/**/*"]
 
 [tool.coverage.paths]
-whisper-stream = ["whisper-stream/core", "whisper-stream/pipelines"]
+whisper-stream-core = ["whisper_stream/core"]
+whisper-stream-jax-pipelines = ["/whisper_stream/projects/jax_pipelines"]
+whisper-stream-faster-whisper-api = [
+  "whisper_stream/projects/faster_whisper_api",
+]
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
