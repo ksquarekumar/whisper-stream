@@ -14,6 +14,9 @@ phases:
       # Auth with Destination ECR
       - aws --region "${DESTINATION_REGION}" ecr get-login-password | docker login --username AWS --password-stdin "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_ECR}"
       - docker pull "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" || true
+      - export POLL_IMAGE_COMMAND="aws sagemaker describe-image --image-name "${DESTINATION_IMAGE_VERSION}" --query ImageStatus"
+      - export POLL_IMAGE_TIMEOUT="60"
+      - export POLL_IMAGE_STATUS="CREATED"
     finally:
       # Check Source
       - echo "$(ls -al .)"
@@ -46,27 +49,33 @@ phases:
       # After creating Image, create an Image Version during which SageMaker stores image metadata like SHA etc.
       # every time an image is updated in ECR, a new image version should be created.
       # Create SMI | Exit gracefully if it exists already
-      - |
-        aws --region "${DESTINATION_REGION}" sagemaker create-image \
-          --description "Custom container image for SageMaker with JAX" \
-          --image-name "${DESTINATION_IMAGE_VERSION}" \
-          --display-name "${DESTINATION_IMAGE_VERSION}" \
-          --role-arn "${ROLE_ARN}" 2>&1 || true
-      - |
-        aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
-          --image-name "${DESTINATION_IMAGE_VERSION}" \
-          --aliases jax cu11 \
-          --base-image "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
-          --job-type "NOTEBOOK_KERNEL" \
-          --ml-framework "jax 4.14" \
-          --programming-lang "python 3.10" \
-          --processor "GPU" \
-          --horovod \
-          --release-notes "Support for Jax >=4.14"
-      # Verify the image-version is created successfully. Do NOT proceed if image-version is in CREATE_FAILED state or in any other state apart from CREATED.
-      - |
-        aws --region "${DESTINATION_REGION}" sagemaker describe-image-version \
-          --image-name "${DESTINATION_IMAGE_VERSION}"
+      # - |
+      #   aws --region "${DESTINATION_REGION}" sagemaker create-image \
+      #     --description "Custom container image for SageMaker with JAX" \
+      #     --image-name "${DESTINATION_IMAGE_VERSION}" \
+      #     --display-name "${DESTINATION_IMAGE_VERSION}" \
+      #     --role-arn "${ROLE_ARN}" 2>&1 || true
+      # - sleep 5 # Can't hit in quick succession, afterwards we will poll
+      # - |
+      #   until [[ "$(eval "${POLL_IMAGE_COMMAND}")" = "\"${POLL_IMAGE_STATUS}\"" ]] || [[ ${POLL_IMAGE_TIMEOUT} -le 0 ]]; \
+      #     do echo "waiting for $\"{POLL_IMAGE_STATUS}\"..." && sleep 1; ((timeout--)); done; [[ ${POLL_IMAGE_TIMEOUT} -gt 0 ]]
+      # - |
+      #   VERSION="$(aws --region "${DESTINATION_REGION}" sagemaker create-image-version \
+      #     --image-name "${DESTINATION_IMAGE_VERSION}" \
+      #     --aliases jax cu11 \
+      #     --base-image "${DESTINATION_ACCOUNT_ID}.dkr.ecr.${DESTINATION_REGION}.amazonaws.com/${DESTINATION_REPO_NAME}:${DESTINATION_IMAGE_VERSION}" \
+      #     --job-type "NOTEBOOK_KERNEL" \
+      #     --ml-framework "jax 4.14" \
+      #     --programming-lang "python 3.10" \
+      #     --processor "GPU" \
+      #     --horovod \
+      #     --release-notes "Support for Jax >=4.14" \
+      #     --query Version)"
+      # # Verify the image-version is created successfully. Do NOT proceed if image-version is in CREATE_FAILED state or in any other state apart from CREATED.
+      # - |
+      #   aws --region "${DESTINATION_REGION}" sagemaker describe-image-version \
+      #     --image-name "${DESTINATION_IMAGE_VERSION}" \
+      #     --version-number "${VERSION}"
   post_build:
     commands:
       - echo "All Done"
