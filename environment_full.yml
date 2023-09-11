@@ -17,7 +17,7 @@ dependencies:
   - virtualenv
   # cuda
   - cudatoolkit~=11.8.0
-  - cudnn~=8.6.0
+  - cudnn~=8.8.0
   - cuda-nvcc
   - nccl
   - mkl
