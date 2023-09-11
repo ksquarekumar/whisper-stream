@@ -23,6 +23,28 @@
 
 # Serving `Faster-Whisper`
 
+## Preparation
+
+> add an appropriate `.env` & `log_config.yaml` file to the working directory, use of both are optional, but highly recommended.
+>
+> > refer to [.test.env](./.test.env) and [log_config.yaml](./log_config.yaml) samples in [source](.) directory
+>
+> > for more values that can be put in `.env` file, refer to [FasterWhisperAPILaunchConfig](../../whisper_stream/projects/faster_whisper_api/config/faster_whisper_api_launch_config.py)
+
+## Install
+
+- from `repo root`
+
+```shell
+poetry install --all-extras
+```
+
+- from `project root`
+
+```shell
+poetry install
+```
+
 ## Launch
 
 ```shell

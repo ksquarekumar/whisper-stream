@@ -56,9 +56,9 @@ def create_app(api_logger: APIBoundLogger = common_container.logger()) -> FastAP
         exception_handlers=api_exception_handlers,
         default_response_class=fastapi.responses.ORJSONResponse,
     )
-    app["logger"] = api_logger  # type: ignore[index]
-    app["configs_container"] = common_container  # type: ignore[index]
-    app["model_container"] = model_container  # type: ignore[index]
+    app.logger = api_logger  # type: ignore[attr-defined]
+    app.configs_container = common_container  # type: ignore[attr-defined]
+    app.model_container = model_container  # type: ignore[attr-defined]
     app.include_router(probes_router)
     app.include_router(transcription_router)
     return app

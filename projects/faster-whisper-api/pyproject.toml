@@ -64,8 +64,9 @@ dependency-injector = { version = "^4.41.0", extras = ["pydantic"] }
 coverage = { version = ">=6.5", extras = ["toml"] }
 pytest = ">=7.4.0"
 
-# [tool.poetry.scripts]
-# launch_faster_whisper_api = "whisper_stream.projects.faster_whisper_api.app.__main__"
+[tool.poetry.scripts]
+launch_faster_whisper_api = { reference = "whisper_stream.projects.faster_whisper_api.__main__:main", type = "console" }
+
 [tool.black]
 target-version = ["py311"]
 line-length = 88

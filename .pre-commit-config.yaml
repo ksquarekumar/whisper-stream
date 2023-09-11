@@ -155,7 +155,7 @@ repos:
             "-f",
             "requirements.txt",
             "-o",
-            "requirements.txt",
+            "./projects/faster-whisper-api/requirements.txt",
             "--without-hashes",
           ]
         files: ^(.*/)?poetry\.lock$
@@ -173,7 +173,7 @@ repos:
             "-f",
             "requirements.txt",
             "-o",
-            "requirements.txt",
+            "./projects/jax-pipelines/requirements.txt",
             "--without-hashes",
           ]
         files: ^(.*/)?poetry\.lock$

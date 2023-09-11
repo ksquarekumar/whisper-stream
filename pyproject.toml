@@ -110,9 +110,7 @@ ipywidgets = "*"
 
 [tool.poetry.scripts]
 download_files_from_s3_and_rename = "whisper_stream.core.utils.s3_utils:download_files_from_s3_and_rename_cli"
-launch_faster_whisper_api = { reference = "whisper_stream.projects.faster_whisper_api.app.__main__", extras = [
-  "faster_whisper_api",
-], type = "file" }
+launch_faster_whisper_api = { reference = "whisper_stream.projects.faster_whisper_api.__main__:main", type = "console" }
 
 [tool.black]
 target-version = ["py311"]

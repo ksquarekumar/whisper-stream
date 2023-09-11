@@ -23,6 +23,7 @@
 import os
 from ipaddress import AddressValueError
 from pathlib import Path
+from tkinter import NONE
 from typing import Any
 
 from pydantic import Field, IPvAnyInterface, ValidationError, validator
@@ -59,10 +60,10 @@ def reload_opt_factory() -> bool:
 class FasterWhisperAPILaunchConfig(APIBaseSettings):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8080, gt=0, le=65535)
-    env_file: str = Field(
+    env_file: str | None = Field(
         default=str(Path.cwd() / ".env"), validation_alias="dotenv_path"
     )
-    log_config: str = Field(default=str(Path.cwd() / "log_config.yaml"))
+    log_config: str | None = Field(default=str(Path.cwd() / "log_config.yaml"))
     workers: int = Field(default=1, ge=-1, validation_alias="num_workers")
     loop: LoopSetupType = "uvloop"
     timeout_graceful_shutdown: int = Field(
@@ -98,11 +99,11 @@ class FasterWhisperAPILaunchConfig(APIBaseSettings):
             raise ValidationError(exception) from exception
 
     @validator("env_file", "log_config")
-    def file_path_validator(cls, v: Any) -> str:
-        if Path(v).exists():
+    def file_path_validator(cls, v: Any | None) -> str | None:
+        if v is not None and Path(v).exists():
             return str(Path(v).absolute())
-        error_message: str = f"{v} is not a valid path"
-        raise ValidationError(error_message)
+        else:
+            return None
 
     @validator("workers")
     def validate_workers(cls, v: Any) -> int:
