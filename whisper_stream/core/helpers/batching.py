@@ -32,7 +32,7 @@ from whisper_stream.core.helpers.preprocessing import (
     DEFAULT_RESAMPLER_FN,
 )
 from whisper_stream.core.logger import BoundLogger
-from whisper_stream.typings import (
+from whisper_stream.core.typings import (
     AudioFilesDType,
     BatchPreProcessorTasksMapping,
     BatchedTaskProcessingStrategy,

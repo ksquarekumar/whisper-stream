@@ -1,0 +1,10 @@
+[virtualenvs]
+prefer-active-python = true
+create = false
+in-project = false
+ignore-conda-env = true
+path = "../../.venv"
+
+[virtualenvs.options]
+always-copy = false
+system-site-packages = true

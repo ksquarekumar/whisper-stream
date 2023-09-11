@@ -16,7 +16,7 @@ dependencies:
   - flit
   - virtualenv
   # cuda
-  - cuda-toolkit~=11.8.0
+  - cudatoolkit~=11.8.0
   - cudnn~=8.8.0
   - cuda-nvcc
   - nccl
@@ -27,8 +27,29 @@ dependencies:
   - viztracer
   # dl
   - transformers
+  - datasets
   # utils
   - ffmpeg
   # libs
+  - coverage
+  - pytest
+  - black
+  - mypy
+  - ruff
+  - pre-commit
   - structlog
+  # - loguru
+  # - icecream
   - uvicorn
+  - nbqa
+  # jupyter
+  - tqdm
+  - ipython
+  - ipykernel
+  - jupyterlab
+  - ipywidgets
+  - jupyterlab_code_formatter
+  - nbconvert
+  # misc
+  - htop
+  - nano
