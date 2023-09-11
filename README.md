@@ -23,7 +23,7 @@ pip install "whisper-stream[{feature},...] @ git+https://github.com/ksquarekumar
 
 > This project uses [pyenv](https://github.com/pyenv/pyenv), [mamba](https://github.com/mamba-org/mamba) and [`poetry`](https://python-poetry.org/) to manage environments, dependencies and building wheels.
 
-> For correct building of artifacts, this proejct also relies on some poetry plugins:
+> For correct building of artifacts, this project also relies on some poetry plugins:
 >
 > > [poetry-multiproject-plugin](https://github.com/davidvujic/poetry-multiproject-plugin)
 >
@@ -56,7 +56,7 @@ poetry self add poetry-conda poetry-multiproject-plugin
 poetry self update
 ```
 
-##### _2.2. Optionally, set it (`base`) as the default global interpreter in `pyenv`._
+##### _2.2. Optionally, set it (`base` env) as the default global interpreter in `pyenv`._
 
 ```shell
 pyenv global mambaforge-22.9.0-3
@@ -66,7 +66,7 @@ exec $(SHELL)
 #### _3. Create a project environment **(named: `whisper_py311`)** from the existing [`conda.yml`](https://github.com/ksquarekumar/whisper-stream/blob/main/conda.yml) manifest._
 
 ```shell
-mamba env create -f conda.yml && mamba activate whisper_py311
+mamba env create -f environment_full.yml && mamba activate whisper_py311
 ```
 
 #### _4. Initialize `poetry` with the correct `python` and install project dependencies in a project local virtual environment with `poetry`._
@@ -99,16 +99,16 @@ pre-commit install --install-hooks
 
 ```console
 pip install projects/{feature_set}/requirements.txt
-pip install .["{feature_set_extras}",..]
+pip install .
 ```
 
 - with `conda` as the system's environment manager
 
 ```console
 conda install mamba
-mamba env update -f conda.yml
+mamba env update -f environment_full.yml
 pip install projects/{feature_set}/requirements.txt
-pip install .["{feature_set_extras}",..]
+pip install .
 ```
 
 ### Feature-Sets
