@@ -22,6 +22,9 @@
 #
 import fastapi
 from fastapi import FastAPI
+from whisper_stream.projects.faster_whisper_api.config.faster_whisper_api_launch_config import (
+    FasterWhisperAPILaunchConfig,
+)
 
 from whisper_stream.projects.faster_whisper_api.di.common import (
     AppMetaData,
@@ -30,31 +33,29 @@ from whisper_stream.projects.faster_whisper_api.di.common import (
 from whisper_stream.projects.faster_whisper_api.di.faster_whisper_model import (
     FasterWhisperModelServiceContainer,
 )
-from whisper_stream.projects.faster_whisper_api.schemas.exceptions import (
-    api_exception_handlers,
-)
 from whisper_stream.projects.faster_whisper_api.endpoints import (
     probes_router,
     transcription_router,
 )
 from whisper_stream.projects.faster_whisper_api.logger import APIBoundLogger
 
-# di containers
-common_container = CommonServiceContainer()
-model_container = FasterWhisperModelServiceContainer()
-
 
 # app factory
-def create_app(api_logger: APIBoundLogger = common_container.logger()) -> FastAPI:
-    app_metadata: AppMetaData = common_container.app_metadata()
+def create_app(
+    api_logger: APIBoundLogger,
+    app_metadata: AppMetaData,
+    launch_config: FasterWhisperAPILaunchConfig,
+    common_container: CommonServiceContainer,
+    model_container: FasterWhisperModelServiceContainer,
+) -> FastAPI:
     app: FastAPI = FastAPI(
         title=app_metadata.full_name,
         description=app_metadata.description,
         version=app_metadata.version,
         docs_url="/openapi",
         redoc_url="/docs",
-        exception_handlers=api_exception_handlers,
         default_response_class=fastapi.responses.ORJSONResponse,
+        root_path=launch_config.root_path,
     )
     app.logger = api_logger  # type: ignore[attr-defined]
     app.configs_container = common_container  # type: ignore[attr-defined]
@@ -64,4 +65,4 @@ def create_app(api_logger: APIBoundLogger = common_container.logger()) -> FastAP
     return app
 
 
-__all__: list[str] = ["create_app", "common_container", "model_container"]
+__all__: list[str] = ["create_app"]

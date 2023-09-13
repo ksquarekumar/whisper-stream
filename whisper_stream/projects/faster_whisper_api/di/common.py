@@ -22,6 +22,7 @@
 #
 from dataclasses import dataclass
 from importlib.metadata import version
+from pathlib import Path
 from typing import Final, cast
 
 from dependency_injector import containers, providers
@@ -54,7 +55,7 @@ class AppMetaData:
 
 class CommonServiceContainer(containers.DeclarativeContainer):
     config = providers.Configuration()
-    env = providers.Resource(load_dotenv)
+    env = providers.Resource(load_dotenv, dotenv_path=Path.cwd() / ".env", verbose=True)
 
     wiring_config = containers.WiringConfiguration(
         modules=[
@@ -62,8 +63,9 @@ class CommonServiceContainer(containers.DeclarativeContainer):
             "whisper_stream.projects.faster_whisper_api.di.faster_whisper_model",
             "whisper_stream.projects.faster_whisper_api.endpoints.probes",
             "whisper_stream.projects.faster_whisper_api.endpoints.transcribe",
-            "whisper_stream.projects.faster_whisper_api.launcher",
             "whisper_stream.projects.faster_whisper_api.app",
+            "whisper_stream.projects.faster_whisper_api.launcher",
+            "whisper_stream.projects.faster_whisper_api.__main__",
         ],
         auto_wire=True,
     )
@@ -79,12 +81,12 @@ class CommonServiceContainer(containers.DeclarativeContainer):
         APIBoundLogger
     ] = providers.ThreadSafeSingleton(
         get_api_logger,
-        scope=cast(str, config.scope or app_metadata().full_name),
+        scope=cast(str, config().get("scope", app_metadata().full_name)),
         application_name=app_metadata().application,
         min_log_level=get_log_level_name_from_string(
-            cast(str, config.log_level or "INFO")
+            cast(str, config().get("log_level", "INFO"))
         ),
-        binds=cast(dict[str, str], config.binds or {}),
+        binds=cast(dict[str, str], config().get("binds", {})),
     )
 
 

@@ -160,7 +160,7 @@ def get_backend(
             raise ValueError(error)
 
 
-DEFAULT_PARALLEL_BACKEND: Parallel = get_backend("threading")
+DEFAULT_PARALLEL_BACKEND: Parallel = get_backend("threading", n_jobs=cpu_count())
 
 __all__: list[str] = [
     "get_backend",

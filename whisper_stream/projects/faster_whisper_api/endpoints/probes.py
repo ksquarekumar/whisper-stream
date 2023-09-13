@@ -26,8 +26,12 @@ from whisper_stream.projects.faster_whisper_api.di.common import (
     AppMetaData,
     CommonServiceContainer,
 )
-from fastapi import APIRouter, Depends
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import ORJSONResponse, RedirectResponse
+
+from whisper_stream.projects.faster_whisper_api.schemas.responses import (
+    FasterWhisperAPIProbeResponse,
+)
 
 probes_router = APIRouter()
 
@@ -35,11 +39,14 @@ probes_router = APIRouter()
 @probes_router.get("/healthz", operation_id="healthz")
 @inject
 async def healthz(
+    request: Request,
     app_metadata: AppMetaData = Depends(Provide[CommonServiceContainer.app_metadata]),
-) -> PlainTextResponse:
-    return PlainTextResponse(
-        f"you have arrived at {app_metadata.full_name} {datetime.utcnow().isoformat()}",
-        200,
+) -> FasterWhisperAPIProbeResponse:
+    return FasterWhisperAPIProbeResponse(
+        message=f"Welcome to {app_metadata.application}",
+        service_instance_name=app_metadata.full_name,
+        timestamp=datetime.utcnow(),
+        root_path=str(request.scope.get("root_path", "")),
     )
 
 
@@ -49,10 +56,14 @@ async def healthz(
 )
 @inject
 async def ping(
+    request: Request,
     app_metadata: AppMetaData = Depends(Provide[CommonServiceContainer.app_metadata]),
-) -> PlainTextResponse:
-    return PlainTextResponse(
-        f"pong from {app_metadata.full_name} at {datetime.utcnow().isoformat()}", 200
+) -> FasterWhisperAPIProbeResponse:
+    return FasterWhisperAPIProbeResponse(
+        message=f"Pong from {app_metadata.application}",
+        service_instance_name=app_metadata.full_name,
+        timestamp=datetime.utcnow(),
+        root_path=str(request.scope.get("root_path", "")),
     )
 
 

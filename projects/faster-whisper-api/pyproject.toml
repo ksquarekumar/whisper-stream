@@ -56,13 +56,17 @@ uvloop = "^0.17.0"
 uvicorn = { version = ">=0.23.2", extras = ["standard"] }
 fastapi = { version = ">=0.103.1", extras = ["all"] }
 python-dotenv = "^1.0.0"
-pydantic = { version = ">2.0", extras = ["pydantic-settings"] }
+pydantic = { version = ">2.0" }
 pydantic-settings = ">=2.0.3"
 dependency-injector = { version = "^4.41.0", extras = ["pydantic"] }
 
 [tool.poetry.group.test.dependencies]
 coverage = { version = ">=6.5", extras = ["toml"] }
 pytest = ">=7.4.0"
+locust = ">=2.16.1"
+gevent = ">=23.9.0"
+geventhttpclient = ">=2.0.0"
+requests = "2.31.0"
 
 [tool.poetry.scripts]
 launch_faster_whisper_api = { reference = "whisper_stream.projects.faster_whisper_api.__main__:main", type = "console" }

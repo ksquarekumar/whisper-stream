@@ -22,12 +22,14 @@
 #
 from io import BytesIO
 from time import time
-from typing import Iterable, Literal, Annotated
+from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends
-from faster_whisper.transcribe import Segment, TranscriptionInfo
+from fastapi import APIRouter, Depends, File
+from faster_whisper.transcribe import TranscriptionInfo
 from pydantic import ValidationError
+
+from whisper_stream.core.helpers.parallel import DEFAULT_PARALLEL_BACKEND, delayed
 
 from whisper_stream.projects.faster_whisper_api.config.faster_whisper_model_config import (
     FasterWhisperAPIModelFactoryConfig,
@@ -39,7 +41,6 @@ from whisper_stream.projects.faster_whisper_api.di.common import CommonServiceCo
 from whisper_stream.projects.faster_whisper_api.di.faster_whisper_model import (
     FasterWhisperModelServiceContainer,
 )
-from whisper_stream.projects.faster_whisper_api.logger import APIBoundLogger
 from whisper_stream.projects.faster_whisper_api.preload.faster_whisper_model import (
     AsyncWhisperModel,
 )
@@ -54,9 +55,32 @@ from whisper_stream.projects.faster_whisper_api.schemas.responses import (
     FasterWhisperAPIAudioTranscriptionResponseMetadata,
 )
 
-from fastapi import File
-
 transcription_router = APIRouter()
+
+
+async def make_response(
+    text_response: str,
+    info: TranscriptionInfo,
+    time_taken: str,
+    transcription_config: FasterWhisperAPITranscriptionConfig,
+    model_config: FasterWhisperAPIModelFactoryConfig,
+) -> FasterWhisperAPIAudioTranscriptionResponse:
+    return FasterWhisperAPIAudioTranscriptionResponse(
+        text_response=text_response,
+        segments="Disabled",
+        metadata=FasterWhisperAPIAudioTranscriptionResponseMetadata(
+            time_taken=time_taken,
+            transciption_metadata=FasterWhisperAPIAudioTranscriptionResponseInfo(
+                language=info.language,
+                language_probability=info.language_probability,
+                duration=info.duration,
+                duration_after_vad=info.duration_after_vad,
+                all_language_probs=list(*(info.all_language_probs or [])),
+            ),
+            whisper_model_config=model_config,
+            transcription_config=transcription_config,
+        ),
+    )
 
 
 @transcription_router.post(
@@ -81,44 +105,36 @@ async def transcribe_audio(
     transcription_config: FasterWhisperAPITranscriptionConfig = Depends(
         Provide[CommonServiceContainer.transcription_config]
     ),
-    logger: APIBoundLogger = Depends(Provide[CommonServiceContainer.logger]),
 ) -> FasterWhisperAPIAudioTranscriptionResponse:
-    result: dict[Literal["response"], FasterWhisperAPIAudioTranscriptionResponse] = {}
     try:
         start: float = time()
-        model_response: tuple[
-            Iterable[Segment], TranscriptionInfo
-        ] = await model.transcribe_async(
+        segments, info = await model.transcribe_async(
             audio=BytesIO(audio), transcription_config=transcription_config
         )
-        segments, info = model_response
+        time_taken: str = f"{time() - start:.2f}s"
 
-        response = FasterWhisperAPIAudioTranscriptionResponse(
-            text_response="".join(segment.text for segment in segments),
-            segments="Disabled",
-            metadata=FasterWhisperAPIAudioTranscriptionResponseMetadata(
-                time_taken=f"{time() - start:.2f}s",
-                transciption_metadata=FasterWhisperAPIAudioTranscriptionResponseInfo(
-                    language=info.language,
-                    language_probability=info.language_probability,
-                    duration=info.duration,
-                    duration_after_vad=info.duration_after_vad,
-                    all_language_probs=list(*(info.all_language_probs or [])),
-                ),
-                whisper_model_config=model_config,
-                transcription_config=transcription_config,
-            ),
+        text_response: str = "".join(
+            list(
+                DEFAULT_PARALLEL_BACKEND(
+                    delayed(str)(segment[4]) for segment in segments
+                )
+            )
         )
-        result["response"] = response
-        logger.info(time=f"{time()-start:.2f}s")
+
+        time_taken = time_taken + f"/{time() - start:.2f}s"
+        return await make_response(
+            text_response=text_response,
+            info=info,
+            time_taken=time_taken,
+            transcription_config=transcription_config,
+            model_config=model_config,
+        )
     except ValidationError as exception:
         raise BadRequestAPIException(error=exception)
     except ValueError as exception:
         raise UnprocessableEntityAPIException(error=exception)
     except Exception as unknown_exc:
-        raise InternalServerAPIException(unknown_exc)
-    finally:
-        return result["response"]
+        raise InternalServerAPIException(error=unknown_exc)
 
 
 __all__: list[str] = ["transcription_router"]

@@ -31,6 +31,8 @@ class FasterWhisperModelServiceContainer(containers.DeclarativeContainer):
         modules=[
             "whisper_stream.projects.faster_whisper_api.endpoints.transcribe",
             "whisper_stream.projects.faster_whisper_api.app",
+            "whisper_stream.projects.faster_whisper_api.launcher",
+            "whisper_stream.projects.faster_whisper_api.__main__",
         ],
         auto_wire=True,
     )

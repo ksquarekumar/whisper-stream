@@ -43,6 +43,7 @@ class APIBaseModel(BaseModel):
         allow_inf_nan=False,
         strict=False,
         ser_json_bytes="utf8",
+        ser_json_timedelta="iso8601",
     )
 
 

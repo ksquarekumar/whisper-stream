@@ -6,6 +6,8 @@
 !/whisper_stream
 !/projects/faster-whisper-api
 !/projects/faster-whisper-api/**/*
+!/projects/jax-pipelines
+!/projects/jax-pipelines/**/*
 
 ## Drop unneccessary stuff again
 **/*/.test.env

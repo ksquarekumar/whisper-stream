@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  faster-whisper-service:
+    image: faster-whisper-api:latest
+    command: launch_faster_whisper_api
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

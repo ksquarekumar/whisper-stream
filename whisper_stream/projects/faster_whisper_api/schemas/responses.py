@@ -20,6 +20,7 @@
 # # You should have received a copy of the APACHE LICENSE, VERSION 2.0
 # # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
 #
+from datetime import datetime
 from typing import Literal
 from faster_whisper.transcribe import Segment
 from whisper_stream.projects.faster_whisper_api.config.base import APIBaseModel
@@ -29,6 +30,13 @@ from whisper_stream.projects.faster_whisper_api.config.faster_whisper_model_conf
 from whisper_stream.projects.faster_whisper_api.config.faster_whisper_transcription_config import (
     FasterWhisperAPITranscriptionConfig,
 )
+
+
+class FasterWhisperAPIProbeResponse(APIBaseModel):
+    message: str
+    service_instance_name: str
+    timestamp: datetime
+    root_path: str
 
 
 class FasterWhisperAPIAudioTranscriptionResponseInfo(APIBaseModel):

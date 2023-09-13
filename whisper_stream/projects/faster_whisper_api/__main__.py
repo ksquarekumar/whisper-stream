@@ -22,23 +22,35 @@
 # # along with this program. If not, see <https://apache.org/licenses/LICENSE-2.0>
 #
 from fastapi import FastAPI
+from whisper_stream.projects.faster_whisper_api.di.common import (
+    CommonServiceContainer,
+)
+from whisper_stream.projects.faster_whisper_api.di.faster_whisper_model import (
+    FasterWhisperModelServiceContainer,
+)
 from whisper_stream.projects.faster_whisper_api.app import (
     create_app,
-    common_container,
-    model_container,
 )
 from whisper_stream.projects.faster_whisper_api.launcher import launch_app
 
-app: FastAPI = create_app()
+common_container = CommonServiceContainer()
+model_container = FasterWhisperModelServiceContainer()
+
+common_container.init_resources()
+
+app: FastAPI = create_app(
+    api_logger=common_container.logger(),
+    app_metadata=common_container.app_metadata(),
+    launch_config=common_container.launch_config(),
+    common_container=common_container,
+    model_container=model_container,
+)
 
 
 def main() -> None:
-    common_container.wire()
-    model_container.wire()
-    common_container.init_resources()
     launch_app("whisper_stream.projects.faster_whisper_api.__main__:app")
-    common_container.shutdown_resources()
 
 
 if __name__ == "__main__":
     main()
+    common_container.shutdown_resources()

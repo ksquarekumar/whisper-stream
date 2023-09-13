@@ -1,7 +1,0 @@
-locust
-requests
-gevent
-geventhttpclient
-orjson
-structlog
-joblib

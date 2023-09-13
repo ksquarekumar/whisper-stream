@@ -248,6 +248,24 @@ repos:
             "--without-hashes",
           ]
         files: ^(.*/)?poetry\.lock$
+      - id: export-root-test
+        name: run poetry export on all `main`+`test` goups to sync lock file with requirements.testing.txt
+        language: system
+        pass_filenames: false
+        entry: poetry export
+        args:
+          [
+            "--only",
+            "main",
+            "--only",
+            "test",
+            "-f",
+            "requirements.txt",
+            "-o",
+            "requirements.testing.txt",
+            "--without-hashes",
+          ]
+        files: ^(.*/)?poetry\.lock$
     repo: local
   - hooks:
       - id: licenseheaders

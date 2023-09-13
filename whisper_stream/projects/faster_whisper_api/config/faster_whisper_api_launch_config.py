@@ -23,7 +23,6 @@
 import os
 from ipaddress import AddressValueError
 from pathlib import Path
-from tkinter import NONE
 from typing import Any
 
 from pydantic import Field, IPvAnyInterface, ValidationError, validator
@@ -89,6 +88,7 @@ class FasterWhisperAPILaunchConfig(APIBaseSettings):
     lifespan: LifespanType = Field(default="auto", validation_alias="enable_lifecycles")
     reload: bool = Field(default_factory=reload_opt_factory)
     http: HTTPProtocolType = Field(default="h11", validation_alias="httpspec")
+    root_path: str = Field(default="")
 
     @validator("host")
     def validate_host_address(cls, v: Any) -> str:
