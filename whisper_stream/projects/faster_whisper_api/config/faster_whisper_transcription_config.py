@@ -39,7 +39,7 @@ class FasterWhisperAPITranscriptionConfig(APIBaseSettings):
     beam_size: int = Field(default=5, ge=1, le=5)
     language: str = Field(default="en")
     task: str = Field(default="transcribe")
-    best_of: int = Field(default=5, gt=1, le=5)
+    best_of: int = Field(default=1, ge=1, le=5)
     patience: float = Field(default=1.0, ge=1e-1, le=1.0)
     length_penalty: float = Field(default=1.0, ge=1.0)
     repetition_penalty: float = Field(default=1.0, gt=0.0)
@@ -49,16 +49,7 @@ class FasterWhisperAPITranscriptionConfig(APIBaseSettings):
     compression_ratio_threshold: float | None = Field(default=2.4)
     condition_on_previous_text: bool = Field(default=True)
     prompt_reset_on_temperature: float = Field(default=0.5, gt=0.0)
-    temperature: list[float] = Field(
-        default=[
-            0.0,
-            0.2,
-            0.4,
-            0.6,
-            0.8,
-            1.0,
-        ]
-    )
+    temperature: list[float] = Field(default=[0, 0, 0.2])
     initial_prompt: str | Iterable[int] | None = None
     prefix: str | None = None
     suppress_blank: bool = Field(default=True)
