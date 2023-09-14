@@ -1,0 +1,235 @@
+ARG USER_NAME
+ARG EMAIL_ADDRESS
+ARG SOURCE_IMAGE_NAME="pytorch"
+ARG SOURCE_IMAGE_RELEASE="23.08-py3"
+
+# Pull from existing
+FROM "nvcr.io/nvidia/${SOURCE_IMAGE_NAME}:${SOURCE_IMAGE_RELEASE}" AS base
+
+# Setting some environment variables related to logging
+ENV DEBIAN_FRONTEND="noninteractive" \
+    LC_ALL="C.UTF-8" \
+    JAVA_VERSION="openjdk-19" \
+    NODE_MAJOR="20" \
+    SOURCE_IMAGE_NAME="pytorch" \
+    SOURCE_IMAGE_RELEASE="23.08-py3" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_EXTRA_INDEX_URL='https://pypi.nvidia.com' \
+    XLA_PYTHON_CLIENT_PREALLOCATE="false" \
+    XLA_PYTHON_CLIENT_MEM_FRACTION=".50"
+
+# hadolint ignore=DL3008,DL3009
+RUN apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
+    && mkdir -p /etc/apt/keyrings \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && apt-get install \
+    --no-install-suggests \
+    --no-install-recommends -y \
+    curl \
+    wget \
+    ca-certificates \
+    gnupg \
+    sudo \
+    # register nodejs & yarn repos
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
+    && echo "deb https://dl.yarnpkg.com/debian/ rc main" | tee /etc/apt/sources.list.d/yarn.list \
+    # register docker repo
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    # register nvidia-docker repo
+    && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+    && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    tee /etc/apt/sources.list.d/nvidia-container-toolkit.list \
+    && apt-get update -q -o Acquire::CompressionTypes::Order::=gz \
+    && apt-get install \
+    --no-install-suggests \
+    --no-install-recommends -y \
+    software-properties-common \
+    apt-utils \
+    debconf \
+    dirmngr \
+    lsb-release \
+    binutils \
+    coreutils \
+    git \
+    zip \
+    unzip \
+    tar \
+    lzma \
+    bzip2 \
+    xz-utils \
+    cron \
+    tzdata \
+    fontconfig \
+    locales \
+    htop \
+    nano \
+    aria2 \
+    tmux \
+    zsh \
+    gpg \
+    gpg-agent \
+    apt-transport-https \
+    axel \
+    procps \
+    vim \
+    vim-common \
+    less \
+    jq \
+    build-essential \
+    clang-15 \
+    llvm-15 \
+    llvm-15-linker-tools \
+    llvm-15-runtime \
+    pkg-config \
+    ncurses-bin \
+    ncurses-base \
+    make \
+    "${JAVA_VERSION}-jre" \
+    pax-utils \
+    libxml2 \
+    libtbb2 \
+    liblua5.2 \
+    expat \
+    libuv1 \
+    libncursesw5 \
+    libxext6 \
+    libxrender1 \
+    libxtst6 \
+    libfreetype6 \
+    libxi6 \
+    zlib1g \
+    checkinstall \
+    intel-mkl-full \
+    libmkl-tbb-thread \
+    # nodejs & yarn
+    && apt-get install -y \
+    nodejs \
+    yarn \
+    && update-alternatives --install /usr/bin/nodejs nodejs /usr/bin/node 50 \
+    && update-alternatives --install /usr/bin/yarn yarn /usr/bin/yarn 50 \
+    && update-alternatives --install /usr/bin/npm npm /usr/bin/npm 50 \
+    && /usr/bin/yarn global add yarn \
+    && /usr/bin/npm install --global npm \
+    # install Docker & Co.
+    && apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin \
+    && ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose || true \
+    # install nvidia-docker
+    && apt-get install -y nvidia-container-toolkit \
+    && nvidia-ctk runtime configure --runtime=docker || true \
+    && nvidia-ctk runtime configure --runtime=containerd || true \
+    # setup git
+    && git config --global user.name "${USER_NAME}" \
+    && git config --global user.email "${EMAIL_ADDRESS}" \
+    && git config --global credential.helper store \
+    && git config --global core.filemode false
+
+COPY environment_full.yml "${HOME}/environment_full.yml"
+COPY requirements.txt "${HOME}/requirements.txt"
+
+# CHANGE DEFAULT SHELL
+SHELL ["/bin/bash", "-c"]
+
+# ZSH BOOTSTRAP
+WORKDIR /opt/zsh
+RUN git clone https://github.com/jotyGill/ezsh.git \
+    && chmod -R +x ./ezsh/*.sh
+
+# Install AWS CLI v2
+WORKDIR /tmp/awscli
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip -q awscliv2.zip \
+    && ./aws/install \
+    && rm -rf aws awscliv2.zip
+
+# # Needed for JUPYTERHUB
+RUN npm install --location=global configurable-http-proxy
+
+# CODE SERVER 
+RUN curl -fsSL https://code-server.dev/install.sh | sh && \
+    rm -rf "${HOME}/.cache"
+
+# hadolint ignore=DL3013,SC2261
+RUN python3 -m pip install --no-cache-dir --upgrade supervisor \
+    # PRE-DEPS
+    && python3 -m pip install --no-cache-dir --upgrade pip setuptools setuptools_rust python-build wheel flit poetry \
+    && python3 -m poetry self add poetry-conda poetry-multiproject-plugin \
+    # ML (NVIDIA)
+    && python3 -m pip install --no-cache-dir --upgrade nvidia-pyindex \
+    # AWS Stuff
+    && python3 -m pip install  --no-cache-dir --upgrade sagemaker-training multi-model-server --upgrade \
+    # Install Jupyter & Co.
+    && python3 -m pip install  --no-cache-dir --upgrade \
+    jupyterhub \
+    jupyterlab \
+    jupyter-server \
+    notebook \
+    dask \
+    xeus-python \
+    credstash \
+    jupytext \
+    ipython \
+    jupyter_contrib_nbextensions \
+    jupyter_nbextensions_configurator \
+    cryptography \
+    ipywidgets \
+    ipympl \
+    ipyvolume \
+    jupyterlab-drawio \
+    bqplot \
+    voila \
+    ipyleaflet \
+    jupyter-lsp \
+    jupyterlab-lsp \
+    black \
+    mypy \
+    ruff \
+    python-lsp-server[all] \
+    python-lsp-black \
+    pyls-isort \
+    python-lsp-ruff \
+    pylsp-mypy \
+    lckr-jupyterlab-variableinspector \
+    jupyterlab_widgets \
+    jupyterlab-git \
+    jupyterlab-code-formatter \
+    nbconvert \
+    jupyterlab_theme_solarized_dark \
+    && python3 -m pip install --no-cache-dir --upgrade git+https://github.com/FZJ-JSC/jupyter-codeserver-proxy.git \
+    && python3 -m jupyter labextension install @jupyterlab/server-proxy \
+    && python3 -m jupyter lab build \
+    # Install (ROOT) IPyKernel
+    && python3 -m pip install --no-cache-dir --upgrade ipykernel \
+    && python3 -m ipykernel install --sys-prefix --name "python3-sys"
+    
+RUN \
+    # SETUP MINIFORGE
+    && curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh" \
+    && bash -c Mambaforge-$(uname)-$(uname -m).sh \
+    && rm Mambaforge-$(uname)-$(uname -m).sh \
+    && mamba activate base \
+    && mamba env update -f "${HOME}/environment_full.yml" \
+    # ADD ML Libs & Deps
+    && python3 -m pip install  --no-cache-dir -r "{$HOME}/requirements.txt" --upgrade \
+    # Install (MAMBA) IPyKernel
+    && python3 -m pip install --no-cache-dir --upgrade ipykernel \
+    && python3 -m ipykernel install --user --name "python3-mamba"\
+    # DONE, CLEANUP TIME!
+    && apt-get remove build-essential cmake -yq || true \
+    && apt-get clean -yq \
+    && apt-get autoclean  -yq \
+    && apt-get autoremove --purge -yq \
+    && rm -rf /var/lib/apt/lists/* \
+    && mamba clean -a -y
+
+CMD ["/bin/bash", "-c", "jupyterhub", "--Spawner.default_url=\"/lab\"", "--Spawner.http_timeout=90", "--NotebookApp.terminado_settings=\"{'shell_command': ['/bin/bash']}\""]

@@ -1,0 +1,7 @@
+# Ignore everything at first
+*
+**/*
+
+## Add only what we need
+!environment_full.yml
+!requirements.txt
